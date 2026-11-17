@@ -1,0 +1,17 @@
+# Dependencias y compilados
+node_modules/
+client/dist/
+
+# Configuración y secretos (usar .env.example como plantilla)
+.env
+.env.*
+!.env.example
+
+# Imágenes subidas por los usuarios (las fotos de demo en server/uploads/demo sí se versionan)
+server/uploads/eventos/
+
+# Vercel y varios
+.vercel
+*.log
+.DS_Store
+Thumbs.db

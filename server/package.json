@@ -1,0 +1,32 @@
+{
+  "name": "eventia-server",
+  "version": "1.0.0",
+  "description": "API de Eventia",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "seed": "node src/seed.js",
+    "db:init": "node src/db-init.js",
+    "test": "node tests/smoke.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.4",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "msnodesqlv8": "^6.2.2",
+    "mssql": "^12.7.14",
+    "multer": "^2.5.0",
+    "nodemailer": "^10.6.0",
+    "qrcode": "^1.5.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
