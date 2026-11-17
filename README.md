@@ -140,4 +140,4 @@ Con el servidor iniciado: `cd server && node tests/smoke.js` (31 comprobaciones 
 
 ## Pendiente para producción
 - Servir detrás de **HTTPS** (RNF02) — las cookies pasan a `secure` con `NODE_ENV=production`.
-- Configurar SMTP real y respaldos periódicos de `EventiaDB` (RNF15).
+- Configurar SMTP real y respaldos periódicos de `EventiaDB` (RNF15) y fin.
