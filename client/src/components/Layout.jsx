@@ -76,7 +76,7 @@ export function Header({ inPanel = false }) {
       <a href="#contenido" className="skip-link">Saltar al contenido</a>
       <div className="container">
         <Link to="/" className="logo" aria-label="Eventia, inicio">
-          <img src="/favicon.png" alt="" /> <b>Eventia</b>
+          <img src="/logo-mark.png" alt="" width="50" height="40" /> <b>Eventia</b>
         </Link>
         <SearchBox cities={cities} />
         <nav className="nav" aria-label="Principal">
@@ -129,7 +129,7 @@ export function Footer() {
       <div className="container">
         <div className="footer-grid">
           <div>
-            <Link to="/" className="logo"><img src="/favicon.png" alt="" /> <b>Eventia</b></Link>
+            <Link to="/" className="logo"><img src="/logo-mark.png" alt="" width="50" height="40" /> <b>Eventia</b></Link>
             <p className="mt-2" style={{ maxWidth: 330 }}>La plataforma para descubrir, guardar y compartir los eventos de Abancay y Apurímac. Descubre · Conecta · Vive.</p>
           </div>
           <div>
