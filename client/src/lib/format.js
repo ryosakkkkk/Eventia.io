@@ -67,11 +67,11 @@ export const fmt = (n) => new Intl.NumberFormat('es-PE').format(n || 0);
 /* ---------- Categorías: ícono y color ---------- */
 const CAT_STYLE = [
   [/m[uú]sica/i, Music, '#7c3aed'],
-  [/cultura/i, Landmark, '#d9480f'],
-  [/deporte/i, Trophy, '#059669'],
-  [/gastronom/i, UtensilsCrossed, '#ea580c'],
-  [/feria/i, Store, '#0284c7'],
-  [/educa/i, GraduationCap, '#2f4fe0'],
+  [/cultura/i, Landmark, '#b45309'],
+  [/deporte/i, Trophy, '#047857'],
+  [/gastronom/i, UtensilsCrossed, '#c2410c'],
+  [/feria/i, Store, '#0369a1'],
+  [/educa/i, GraduationCap, '#2563eb'],
   [/emprend/i, Rocket, '#4f46e5'],
   [/famil/i, Users, '#db2777'],
   [/arte/i, Palette, '#c026d3'],

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, ImagePlus, Info, MailCheck, Save, Send, Trash2, MapPin, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ImagePlus, Info, MailCheck, Save, Send, Trash2, MapPin, ShieldCheck, History, CheckCheck } from 'lucide-react';
 import { api } from '../../api';
 import { useApp } from '../../context/AppContext';
 import { EventCard } from '../../components/EventCard';
@@ -55,6 +55,29 @@ export default function EventForm() {
   const [busy, setBusy] = useState(false);
   const [codeModal, setCodeModal] = useState(null);
   const [codigo, setCodigo] = useState('');
+  const [savedAt, setSavedAt] = useState(null);
+  const [restored, setRestored] = useState(null);
+  const DRAFT_KEY = `eventia_draft_${user.correo}`;
+
+  // Autoguardado local del formulario nuevo: si se cierra la pestaña o se corta la conexión, nada se pierde
+  useEffect(() => {
+    if (editing) return;
+    try {
+      const d = JSON.parse(localStorage.getItem(DRAFT_KEY));
+      if (d?.f && (d.f.nombre || d.f.descripcion)) { setF({ ...EMPTY, ...d.f }); setStep(d.step || 0); setRestored(d.at); }
+    } catch { /* borrador ilegible: se ignora */ }
+  }, [editing, DRAFT_KEY]);
+  useEffect(() => {
+    if (editing || f === EMPTY) return undefined;
+    const t = setTimeout(() => {
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ f, step, at: Date.now() })); setSavedAt(Date.now()); } catch { /* sin espacio */ }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [f, step, editing, DRAFT_KEY]);
+  const discardDraft = () => {
+    try { localStorage.removeItem(DRAFT_KEY); } catch { /* nada */ }
+    setF(EMPTY); setStep(0); setRestored(null); setSavedAt(null); setError('');
+  };
 
   useEffect(() => {
     api.get('/organizer/profile').then((r) => setOrg(r.organizador));
@@ -73,7 +96,7 @@ export default function EventForm() {
     const cap = f.limitada ? Number(f.capacidad) || 0 : 0;
     const disp = f.limitada ? Number(f.entradas_disponibles) || 0 : 0;
     return {
-      id: 0, nombre: f.nombre || 'Nombre de tu evento', categoria: cat?.nombre || 'Categoría', fecha: f.fecha || todayISO(), hora: f.hora || '19:00',
+      id: 0, nombre: f.nombre || 'Nombre de tu evento', categoria: cat?.nombre || 'Categoría', fecha: f.fecha || todayISO(), sinFecha: !f.fecha, hora: f.hora || '19:00',
       lugar: f.lugar || 'Lugar', ciudad: f.ciudad || 'Abancay', imagen: imagen.url, total_asistencias: 0, capacidad: cap, entradas_disponibles: disp,
       disponibilidad: cap === 0 ? 'LIBRE' : disp === 0 ? 'AGOTADO' : disp / cap <= 0.2 ? 'ULTIMOS' : 'DISPONIBLE',
     };
@@ -96,6 +119,16 @@ export default function EventForm() {
     setError('');
     setStep((s) => Math.min(s + 1, 3));
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  // Los pasos son navegables: hacia atrás siempre; hacia adelante si los anteriores están completos
+  const goTo = (i) => {
+    if (i <= step) { setError(''); setStep(i); return; }
+    for (let s = step; s < i; s++) {
+      const e = validate(s, f);
+      if (e) { setStep(s); setError(e); return; }
+    }
+    setError('');
+    setStep(i);
   };
   const pickFile = (e) => {
     const file = e.target.files?.[0];
@@ -123,6 +156,7 @@ export default function EventForm() {
     try {
       const r = editing ? await api.put(`/organizer/events/${id}`, fd) : await api.post('/organizer/events', fd);
       setCodeModal(null);
+      if (!editing) { try { localStorage.removeItem(DRAFT_KEY); } catch { /* nada */ } }
       await refreshUser();
       const msg = r.estado === 'PENDIENTE_DE_VALIDACION' ? '¡Evento enviado! El administrador lo revisará pronto.'
         : r.estado === 'BORRADOR' ? 'Borrador guardado.' : editing ? 'Cambios guardados.' : '¡Evento publicado!';
@@ -167,12 +201,23 @@ export default function EventForm() {
         {estado && <StatusBadge estado={estado} />}
       </div>
 
+      {restored && (
+        <div className="form-note row between mb-2" style={{ flexWrap: 'wrap' }}>
+          <span className="row" style={{ gap: 8 }}><History size={16} /> Recuperamos el borrador que dejaste sin terminar. La imagen debes volver a subirla.</span>
+          <button type="button" className="link small" onClick={discardDraft}>Empezar de cero</button>
+        </div>
+      )}
+
       <div className="steps" aria-label="Pasos">
         {STEPS.map((s, i) => (
-          <button key={s} className={`step ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} onClick={() => i < step && setStep(i)} type="button">
+          <button key={s} className={`step ${i === step ? 'active' : ''} ${i < step ? 'done' : ''}`} onClick={() => goTo(i)} type="button"
+            aria-current={i === step ? 'step' : undefined}>
             <i>{i < step ? <Check size={14} /> : i + 1}</i>{s}
           </button>
         ))}
+        {!editing && savedAt && (
+          <span key={savedAt} className="autosave" role="status"><CheckCheck size={16} /> Guardado en este dispositivo</span>
+        )}
       </div>
 
       <div className="wizard">
@@ -253,9 +298,11 @@ export default function EventForm() {
             )}
           </>}
 
-          <hr className="divider" style={{ margin: '6px 0' }} />
-          <div className="row between" style={{ flexWrap: 'wrap', gap: 10 }}>
-            <button type="button" className="btn btn-light" onClick={() => { setError(''); setStep((s) => Math.max(s - 1, 0)); }} disabled={step === 0}><ArrowLeft size={16} /> Anterior</button>
+          {/* Barra de acciones fija abajo: los botones siempre a mano aunque el paso sea largo */}
+          <div className="wizard-actions">
+            {step > 0
+              ? <button type="button" className="btn btn-light" onClick={() => { setError(''); setStep((s) => Math.max(s - 1, 0)); }}><ArrowLeft size={16} /> Anterior</button>
+              : <span />}
             <div className="row" style={{ gap: 8 }}>
               {(!editing || estado === 'BORRADOR') && !isAdmin && (
                 <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => send(editing ? 'guardar' : 'borrador')}><Save size={16} /> Guardar borrador</button>
@@ -268,7 +315,7 @@ export default function EventForm() {
 
         <div className="preview-sticky">
           <p className="tiny bold muted mb-2" style={{ letterSpacing: '.08em' }}>VISTA PREVIA</p>
-          <div style={{ pointerEvents: 'none' }}><EventCard ev={preview} /></div>
+          <div style={{ pointerEvents: 'none' }} aria-hidden="true" inert=""><EventCard ev={preview} /></div>
           <p className="tiny muted mt-2">Así verán tu evento en el catálogo de Eventia.</p>
         </div>
       </div>

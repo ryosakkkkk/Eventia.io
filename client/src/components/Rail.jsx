@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { useReveal } from './ui';
 
-// Fila deslizable de tarjetas con flechas (estilo Ticketmaster). En móvil se desliza con el dedo.
+// Fila deslizable de tarjetas: flechas, arrastre con el mouse, desvanecido en los bordes y entrada al hacer scroll.
+// En pantallas táctiles se desliza con el dedo (scroll nativo con imán).
 export function Rail({ title, subtitle, link, linkLabel = 'Ver todos', wide, children, icon }) {
   const ref = useRef(null);
+  const drag = useRef(null);
+  const moved = useRef(false);
   const [edges, setEdges] = useState({ start: true, end: false });
+  const [dragging, setDragging] = useState(false);
+  const shown = useReveal(ref);
+
   const update = useCallback(() => {
     const el = ref.current;
     if (!el) return;
@@ -19,7 +26,41 @@ export function Rail({ title, subtitle, link, linkLabel = 'Ver todos', wide, chi
     window.addEventListener('resize', update);
     return () => { el.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
   }, [update, children]);
+
   const move = (dir) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.92, behavior: 'smooth' });
+
+  // Arrastre solo con mouse; el dedo usa el desplazamiento nativo
+  const onPointerDown = (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    drag.current = { x: e.clientX, left: ref.current.scrollLeft };
+    moved.current = false;
+  };
+  const onPointerMove = (e) => {
+    if (!drag.current) return;
+    const el = ref.current;
+    const dx = e.clientX - drag.current.x;
+    if (!moved.current && Math.abs(dx) > 6) {
+      moved.current = true;
+      // Sin desplazamiento suave ni imán mientras se arrastra (se aplica al instante, sin esperar a React)
+      el.style.scrollBehavior = 'auto';
+      el.style.scrollSnapType = 'none';
+      setDragging(true);
+    }
+    if (moved.current) el.scrollLeft = drag.current.left - dx;
+  };
+  const endDrag = () => {
+    if (!drag.current) return;
+    drag.current = null;
+    if (moved.current) {
+      setDragging(false);
+      const el = ref.current;
+      // Al soltar, el imán vuelve a alinear la tarjeta más cercana con desplazamiento suave
+      el.style.scrollBehavior = '';
+      el.style.scrollSnapType = '';
+    }
+  };
+  const onClickCapture = (e) => { if (moved.current) { e.preventDefault(); e.stopPropagation(); moved.current = false; } };
+
   return (
     <section className="section container">
       <div className="section-head">
@@ -35,7 +76,11 @@ export function Rail({ title, subtitle, link, linkLabel = 'Ver todos', wide, chi
           </div>
         </div>
       </div>
-      <div className={`rail ${wide ? 'wide' : ''}`} ref={ref}>{children}</div>
+      <div className={`rail ${wide ? 'wide' : ''} ${dragging ? 'dragging' : ''} ${edges.start ? '' : 'fade-l'} ${edges.end ? '' : 'fade-r'} reveal ${shown ? 'in' : ''}`}
+        ref={ref} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerLeave={endDrag}
+        onClickCapture={onClickCapture} onDragStart={(e) => e.preventDefault()}>
+        {children}
+      </div>
     </section>
   );
 }

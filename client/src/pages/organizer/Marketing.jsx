@@ -1,19 +1,47 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, Heart, Users, Share2, MessageCircle, Phone, MapPin, BarChart3 } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 import { api } from '../../api';
 import { imgOf } from '../../components/EventCard';
-import { EmptyState, Loader, StatusBadge } from '../../components/ui';
+import { CountUp, EmptyState, Loader, StatusBadge } from '../../components/ui';
+import { Funnel, LineTrend, SERIES_COLOR } from '../../components/charts';
 import { addDaysISO, fmt, todayISO } from '../../lib/format';
 
 const SERIES = [
-  ['VISUALIZACION', 'Vistas', '#2f4fe0'],
-  ['FAVORITO', 'Guardados', '#e11d48'],
-  ['ASISTENCIA', 'Asistiré', '#16a34a'],
-  ['COMPARTIDO', 'Compartidos', '#ff6a13'],
-  ['CLIC_WHATSAPP', 'WhatsApp', '#1fae58'],
+  ['VISUALIZACION', 'Vistas'],
+  ['FAVORITO', 'Guardados'],
+  ['ASISTENCIA', 'Asistiré'],
+  ['COMPARTIDO', 'Compartidos'],
+  ['CLIC_WHATSAPP', 'WhatsApp'],
 ];
+// Las vistas (cientos) y las acciones (decenas) van en gráficos separados: en un mismo eje las acciones se aplastan.
+const ACTIONS = SERIES.slice(1).map(([key, label]) => ({ key, label, color: SERIES_COLOR[key] }));
+
+export function KpiTile({ icon: Icon, label, value, color, text, to }) {
+  const inner = (
+    <>
+      {/* Primero la etiqueta y luego la cifra: se lee "qué" antes de "cuánto" (patrón Stripe / Linear) */}
+      <span className="kpi-top"><span className="kpi-label">{label}</span><span className="ic" style={{ background: `${color}18`, color }}><Icon size={17} /></span></span>
+      <b>{text ?? <CountUp value={value} />}</b>
+    </>
+  );
+  return to ? <Link to={to} className="kpi">{inner}</Link> : <div className="kpi">{inner}</div>;
+}
+
+export function ChannelList({ items }) {
+  const max = Math.max(1, ...items.map((i) => i.value || 0));
+  return (
+    <div className="bar-list">
+      {items.map(({ icon: Icon, label, value }) => (
+        <div key={label} className="bl-row">
+          <span className="row" style={{ gap: 8 }}><Icon size={16} color="var(--muted)" /> {label}</span>
+          <b>{fmt(value)}</b>
+          <div className="bl-bar"><span style={{ width: `${((value || 0) / max) * 100}%` }} /></div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function buildSeries(serie, dias, hasta = todayISO()) {
   const start = addDaysISO(hasta, -(dias - 1));
@@ -41,40 +69,44 @@ export default function Marketing() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Marketing y estadísticas</h1><p>Cómo interactúa el público con tus eventos. Solo ves métricas de tus eventos.</p></div>
-        <div className="seg">{[7, 30, 90].map((d) => <button key={d} className={dias === d ? 'active' : ''} onClick={() => setDias(d)}>{d} días</button>)}</div>
+        <div><h1>Estadísticas</h1><p>Cómo interactúa el público con tus eventos. Solo ves métricas de tus eventos.</p></div>
+        <div className="seg" role="group" aria-label="Periodo">{[7, 30, 90].map((d) => <button key={d} className={dias === d ? 'active' : ''} aria-pressed={dias === d} onClick={() => setDias(d)}>{d} días</button>)}</div>
       </div>
       {!data.eventos.length ? (
         <EmptyState icon={BarChart3} title="Aún no tienes eventos" text="Publica tu primer evento para empezar a medir su alcance." action={<Link to="/publicar" className="btn btn-primary">Publicar evento</Link>} />
       ) : (
         <>
-          <div className="kpis">
-            {[[Eye, 'Visualizaciones', t.visualizaciones, '#2f4fe0'], [Heart, 'Guardados', t.favoritos, '#e11d48'], [Users, 'Asistiré', t.asistencias, '#16a34a'],
-              [Share2, 'Compartidos', t.compartidos, '#ff6a13'], [MessageCircle, 'Clics WhatsApp', t.clics_whatsapp, '#1fae58'], [Phone, 'Clics llamada', t.clics_llamada, '#0284c7'],
-              [MapPin, 'Clics en mapa', t.clics_mapa, '#7c3aed']].map(([Icon, label, v, color]) => (
-              <div key={label} className="kpi"><span className="ic" style={{ background: `${color}15`, color }}><Icon size={19} /></span><b>{fmt(v)}</b><span>{label}</span></div>
-            ))}
-            <div className="kpi" style={{ background: 'var(--navy)', color: '#fff', borderColor: 'var(--navy)' }}>
-              <span className="ic" style={{ background: 'rgba(255,255,255,.12)', color: '#fff' }}><BarChart3 size={19} /></span><b>{conv}%</b><span style={{ color: '#9fb0d0' }}>Vistas → Asistiré</span>
-            </div>
+          <div className="kpis kpis-4">
+            <KpiTile icon={Eye} label="Visualizaciones" value={t.visualizaciones} color={SERIES_COLOR.VISUALIZACION} />
+            <KpiTile icon={Heart} label="Guardados" value={t.favoritos} color={SERIES_COLOR.FAVORITO} />
+            <KpiTile icon={Users} label="Asistiré" value={t.asistencias} color={SERIES_COLOR.ASISTENCIA} />
+            <KpiTile icon={BarChart3} label="Conversión de vistas a asistencia" text={t.visualizaciones && conv <= 100 ? `${conv}%` : '—'} color="#475569" />
           </div>
-          <div className="card chart-card mb-3">
-            <h3>Interacciones por día</h3>
-            <div style={{ height: 320 }}>
-              <ResponsiveContainer>
-                <AreaChart data={chart} margin={{ left: -18, right: 8, top: 6 }}>
-                  <defs>{SERIES.map(([k, , c]) => <linearGradient key={k} id={`g${k}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={c} stopOpacity={0.25} /><stop offset="1" stopColor={c} stopOpacity={0} /></linearGradient>)}</defs>
-                  <CartesianGrid stroke="#eef1f6" vertical={false} />
-                  <XAxis dataKey="dia" tick={{ fontSize: 11, fill: '#6b7890' }} tickLine={false} axisLine={false} interval="preserveStartEnd" minTickGap={18} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#6b7890' }} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e4e9f2', fontSize: 13 }} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  {SERIES.map(([k, label, c]) => <Area key={k} type="monotone" dataKey={k} name={label} stroke={c} strokeWidth={2} fill={`url(#g${k})`} />)}
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+
+          <div className="dash-grid mb-3">
+            <section className="card chart-card">
+              <div className="chart-head"><h3>Embudo de conversión</h3><span className="muted small">Últimos {dias} días</span></div>
+              <Funnel steps={[{ label: 'Vieron el evento', value: t.visualizaciones || 0 }, { label: 'Lo guardaron', value: t.favoritos || 0 }, { label: 'Confirmaron asistencia', value: t.asistencias || 0 }]} />
+            </section>
+            <section className="card chart-card">
+              <div className="chart-head"><h3>Canales de contacto y difusión</h3></div>
+              <ChannelList items={[
+                { icon: MessageCircle, label: 'WhatsApp', value: t.clics_whatsapp }, { icon: Phone, label: 'Llamadas', value: t.clics_llamada },
+                { icon: MapPin, label: 'Cómo llegar (mapa)', value: t.clics_mapa }, { icon: Share2, label: 'Veces compartido', value: t.compartidos },
+              ]} />
+            </section>
           </div>
+
+          <section className="card chart-card mb-3">
+            <div className="chart-head"><h3>Vistas por día</h3><span className="muted small">{fmt(t.visualizaciones)} en total</span></div>
+            <LineTrend data={chart} series={[{ key: 'VISUALIZACION', label: 'Vistas', color: SERIES_COLOR.VISUALIZACION }]} height={240} label="Vistas por día" />
+          </section>
+          <section className="card chart-card mb-3">
+            <div className="chart-head"><h3>Acciones por día</h3><span className="muted small">Guardados, asistencias, compartidos y WhatsApp</span></div>
+            <LineTrend data={chart} series={ACTIONS} height={280} label="Acciones por día" />
+          </section>
           <div className="card">
+            <div className="chart-head" style={{ padding: '18px 20px 6px' }}><h3>Detalle por evento</h3></div>
             <div className="table-wrap">
               <table className="table">
                 <thead><tr><th>Evento</th><th>Estado</th><th>Vistas</th><th>Guardados</th><th>Asistiré</th><th>Compartidos</th><th>WhatsApp</th><th>Llamadas</th><th>Mapa</th></tr></thead>

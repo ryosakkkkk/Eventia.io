@@ -22,10 +22,10 @@ export default function Attendances() {
   const list = eventos.filter((e) => (tab === 'proximos' ? !e.pasado : e.pasado));
   return (
     <>
-      <div className="page-head"><div><h1>Mis eventos</h1><p>Eventos en los que marcaste “Asistiré”. Recibirás recordatorios antes de cada uno.</p></div></div>
+      <div className="page-head"><div><h1>Mis asistencias</h1><p>Eventos en los que marcaste “Asistiré”. Recibirás recordatorios antes de cada uno.</p></div></div>
       <div className="tabs">
-        <button className={`tab ${tab === 'proximos' ? 'active' : ''}`} onClick={() => setTab('proximos')}>Próximos ({eventos.filter((e) => !e.pasado).length})</button>
-        <button className={`tab ${tab === 'pasados' ? 'active' : ''}`} onClick={() => setTab('pasados')}>Pasados ({eventos.filter((e) => e.pasado).length})</button>
+        <button className={`tab ${tab === 'proximos' ? 'active' : ''}`} onClick={() => setTab('proximos')}>Próximos <span className="tab-count">{eventos.filter((e) => !e.pasado).length}</span></button>
+        <button className={`tab ${tab === 'pasados' ? 'active' : ''}`} onClick={() => setTab('pasados')}>Pasados <span className="tab-count">{eventos.filter((e) => e.pasado).length}</span></button>
       </div>
       {list.length === 0 ? (
         <EmptyState icon={Ticket} title={tab === 'proximos' ? 'No tienes eventos próximos' : 'Aún no tienes eventos pasados'}

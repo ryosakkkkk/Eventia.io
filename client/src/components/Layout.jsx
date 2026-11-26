@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import {
-  Search, MapPin, CalendarDays, Compass, Bell, Plus, Heart, User, LogOut, LayoutDashboard, ShieldCheck, Home,
-  Ticket, Settings, Sparkles, Archive, BarChart3, ChevronDown,
+  CalendarDays, Compass, Bell, Plus, Heart, User, LogOut, LayoutDashboard, ShieldCheck, Home,
+  Ticket, Settings, Sparkles, BarChart3, ChevronDown, Users, Tags, Flag, ScrollText,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { api } from '../api';
 import { Avatar } from './ui';
+import { SearchBox } from './SearchBox';
 
 export const CITIES_FALLBACK = ['Abancay', 'Tamburco', 'Curahuasi', 'Andahuaylas', 'Chalhuanca', 'Chincheros'];
 
@@ -40,10 +41,10 @@ function UserMenu() {
             <span className="badge badge-blue mt-1">{user.rol === 'ADMINISTRADOR' ? 'Administrador' : user.rol === 'ORGANIZADOR' ? 'Organizador' : 'Usuario'}</span>
           </div>
           <Link to="/cuenta/favoritos"><Heart size={17} /> Mis favoritos</Link>
-          <Link to="/cuenta/asistencias"><Ticket size={17} /> Mis eventos</Link>
+          <Link to="/cuenta/asistencias"><Ticket size={17} /> Mis asistencias</Link>
           <Link to="/cuenta/intereses"><Sparkles size={17} /> Para ti e intereses</Link>
           <Link to="/cuenta/perfil"><Settings size={17} /> Mi perfil</Link>
-          {isOrg && <Link to="/organizador"><LayoutDashboard size={17} /> Panel del organizador</Link>}
+          {isOrg && <Link to="/organizador"><LayoutDashboard size={17} /> Mis publicaciones</Link>}
           {user.rol === 'ADMINISTRADOR' && <Link to="/admin"><ShieldCheck size={17} /> Administración</Link>}
           <button onClick={async () => { await logout(); toast('Sesión cerrada', 'info'); navigate('/'); }}><LogOut size={17} /> Cerrar sesión</button>
         </div>
@@ -52,43 +53,36 @@ function UserMenu() {
   );
 }
 
-export function Header() {
+function useScrolled(threshold = 8) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const on = () => setScrolled(window.scrollY > threshold);
+    on();
+    window.addEventListener('scroll', on, { passive: true });
+    return () => window.removeEventListener('scroll', on);
+  }, [threshold]);
+  return scrolled;
+}
+
+export function Header({ inPanel = false }) {
   const { user, unread } = useApp();
-  const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const location = useLocation();
   const cities = useCities();
-  const [q, setQ] = useState(params.get('q') || '');
-  const [ciudad, setCiudad] = useState(params.get('ciudad') || 'Abancay');
-  useEffect(() => { if (location.pathname === '/explorar') setQ(params.get('q') || ''); }, [params, location.pathname]);
-  const submit = (e) => {
-    e.preventDefault();
-    const p = new URLSearchParams();
-    if (q.trim()) p.set('q', q.trim());
-    if (ciudad) p.set('ciudad', ciudad);
-    navigate(`/explorar?${p}`);
-  };
+  const scrolled = useScrolled();
+  const { pathname } = useLocation();
+  // En la portada la cabecera flota como cristal oscuro sobre el escenario; al bajar vuelve a ser clara
+  const overlay = pathname === '/' && !scrolled;
   return (
-    <header className="header">
+    <header className={`header ${scrolled ? 'scrolled' : ''} ${overlay ? 'overlay' : ''}`}>
+      <a href="#contenido" className="skip-link">Saltar al contenido</a>
       <div className="container">
         <Link to="/" className="logo" aria-label="Eventia, inicio">
           <img src="/favicon.png" alt="" /> <b>Eventia</b>
         </Link>
-        <form className="header-search" onSubmit={submit} role="search">
-          <Search size={18} color="var(--muted)" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar eventos, artistas, lugares…" aria-label="Buscar eventos" />
-          <span className="sep" />
-          <span className="city"><MapPin size={15} color="var(--orange)" />
-            <select value={ciudad} onChange={(e) => setCiudad(e.target.value)} aria-label="Ciudad">
-              {cities.map((c) => <option key={c.ciudad} value={c.ciudad}>{c.ciudad}</option>)}
-            </select>
-          </span>
-          <button className="go" aria-label="Buscar"><Search size={16} /></button>
-        </form>
+        <SearchBox cities={cities} />
         <nav className="nav" aria-label="Principal">
           <NavLink to="/explorar" className="navlink hide-sm"><Compass size={19} /> <span className="hide-md">Explorar</span></NavLink>
           <NavLink to="/calendario" className="navlink hide-sm"><CalendarDays size={19} /> <span className="hide-md">Calendario</span></NavLink>
-          <Link to="/publicar" className="btn btn-grad hide-sm" style={{ margin: '0 6px' }}><Plus size={18} /> Publicar evento</Link>
+          {!inPanel && <Link to="/publicar" className="btn btn-grad hide-sm" style={{ margin: '0 6px' }}><Plus size={18} /> Publicar evento</Link>}
           {user ? (
             <>
               <Link to="/cuenta/notificaciones" className="icon-btn" aria-label={`Notificaciones (${unread} sin leer)`}>
@@ -108,16 +102,22 @@ export function Header() {
   );
 }
 
+const duo = (on) => (on ? { fill: 'currentColor', fillOpacity: 0.18, strokeWidth: 2.25 } : { strokeWidth: 1.9 });
+
 export function TabBar() {
-  const { user, unread } = useApp();
+  const { user } = useApp();
+  const { pathname } = useLocation();
+  // "Cuenta" queda activa en todo /cuenta salvo en favoritos, que tiene su propia pestaña (Guardados)
+  const inAccount = pathname.startsWith('/cuenta') && !pathname.startsWith('/cuenta/favoritos');
   return (
     <nav className="tabbar" aria-label="Navegación móvil">
-      <NavLink to="/" end><Home size={24} />Inicio</NavLink>
-      <NavLink to="/explorar"><Search size={24} />Explorar</NavLink>
+      {/* Ícono activo en duotono (relleno suave + trazo), el resto solo trazo */}
+      <NavLink to="/" end>{({ isActive }) => <><Home size={24} {...duo(isActive)} />Inicio</>}</NavLink>
+      <NavLink to="/explorar">{({ isActive }) => <><Compass size={24} {...duo(isActive)} />Explorar</>}</NavLink>
       <NavLink to="/publicar" className="publish"><Plus size={22} />Publicar</NavLink>
-      <NavLink to="/cuenta/favoritos"><Heart size={24} />Guardados</NavLink>
-      <NavLink to={user ? '/cuenta/notificaciones' : '/ingresar'}>
-        <User size={24} />{user ? 'Cuenta' : 'Ingresar'}{user && unread > 0 && <span className="dot-badge" style={{ right: '28%' }}>{unread}</span>}
+      <NavLink to="/cuenta/favoritos">{({ isActive }) => <><Heart size={24} {...duo(isActive)} />Guardados</>}</NavLink>
+      <NavLink to={user ? '/cuenta/asistencias' : '/ingresar'} className={({ isActive }) => (isActive || inAccount ? 'active' : '')}>
+        {({ isActive }) => <><User size={24} {...duo(isActive || inAccount)} />{user ? 'Cuenta' : 'Ingresar'}</>}
       </NavLink>
     </nav>
   );
@@ -142,8 +142,8 @@ export function Footer() {
           <div>
             <h4>Organizadores</h4>
             <Link to="/publicar">Publicar un evento</Link>
-            <Link to="/organizador">Panel del organizador</Link>
-            <Link to="/organizador/marketing">Estadísticas de marketing</Link>
+            <Link to="/organizador">Mis publicaciones</Link>
+            <Link to="/organizador/marketing">Estadísticas</Link>
           </div>
           <div>
             <h4>Tu cuenta</h4>
@@ -161,13 +161,22 @@ export function Footer() {
   );
 }
 
+// Al navegar a otra página: arriba al instante (sin deslizar). Al volver atrás se respeta la posición anterior.
+function useScrollTop(pathname) {
+  const nav = useNavigationType();
+  useLayoutEffect(() => {
+    if (nav !== 'POP') window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [pathname, nav]);
+}
+
 export function PublicLayout() {
   const location = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [location.pathname]);
+  useScrollTop(location.pathname);
   return (
     <>
       <Header />
-      <main><Outlet /></main>
+      {/* La clave por ruta reinicia la animación de entrada en cada cambio de página */}
+      <main id="contenido" key={location.pathname} className="page-enter"><Outlet /></main>
       <Footer />
       <TabBar />
     </>
@@ -175,48 +184,93 @@ export function PublicLayout() {
 }
 
 export function BareLayout() {
-  return (<><Header /><main><Outlet /></main><TabBar /></>);
+  const location = useLocation();
+  return (<><Header /><main id="contenido" key={location.pathname} className="page-enter"><Outlet /></main><TabBar /></>);
 }
 
 /* ---------- Layout de paneles (cuenta, organizador, administración) ---------- */
+// Fuera del componente: definido adentro, cada render (p. ej. al cambiar el contador) remontaría los enlaces y se perdería el foco
+function SideLink({ to, icon: Icon, label, end, count }) {
+  return (
+    <NavLink to={to} end={end} title={label}>
+      <Icon size={18} /> <span className="nl">{label}</span>{count ? <span className="count">{count}</span> : null}
+    </NavLink>
+  );
+}
+
+function panelNav(user, unread) {
+  const groups = [];
+  if (user?.rol === 'ADMINISTRADOR') {
+    groups.push(['Administración', [
+      ['/admin', ShieldCheck, 'Resumen', true], ['/admin/eventos', CalendarDays, 'Eventos'], ['/admin/usuarios', Users, 'Usuarios'],
+      ['/admin/categorias', Tags, 'Categorías'], ['/admin/reportes', Flag, 'Reportes'], ['/admin/auditoria', ScrollText, 'Auditoría'],
+    ]]);
+  }
+  if (user?.rol === 'ORGANIZADOR' || user?.rol === 'ADMINISTRADOR') {
+    groups.push(['Organizador', [['/organizador', LayoutDashboard, 'Mis publicaciones', true], ['/organizador/marketing', BarChart3, 'Estadísticas'], ['/publicar', Plus, 'Publicar evento']]]);
+  }
+  groups.push(['Mi cuenta', [
+    ['/cuenta/favoritos', Heart, 'Favoritos'], ['/cuenta/asistencias', Ticket, 'Asistencias'], ['/cuenta/intereses', Sparkles, 'Intereses'],
+    ['/cuenta/notificaciones', Bell, 'Notificaciones', false, unread], ['/cuenta/perfil', User, 'Perfil'],
+  ]]);
+  return groups;
+}
+
+const SCOPES = [['/admin', 'Administración'], ['/organizador', 'Organizador'], ['/publicar', 'Organizador'], ['/cuenta', 'Mi cuenta']];
+
 export function PanelLayout() {
   const { user, unread } = useApp();
   const location = useLocation();
-  useEffect(() => { window.scrollTo(0, 0); }, [location.pathname]);
+  const [navOpen, setNavOpen] = useState(false);
+  const sideRef = useRef(null);
+  useScrollTop(location.pathname);
+  useEffect(() => { setNavOpen(false); }, [location.pathname]);
+  // El menú móvil se cierra al tocar fuera o con Escape (y el foco vuelve al botón)
+  useEffect(() => {
+    if (!navOpen) return undefined;
+    const onDown = (e) => { if (!sideRef.current?.contains(e.target)) setNavOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') { setNavOpen(false); sideRef.current?.querySelector('.panel-nav-toggle')?.focus(); } };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('pointerdown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [navOpen]);
+  const groups = panelNav(user, unread);
   const isOrg = user?.rol === 'ORGANIZADOR' || user?.rol === 'ADMINISTRADOR';
-  const L = ({ to, icon: Icon, children, end, count }) => (
-    <NavLink to={to} end={end}><Icon size={18} /> {children}{count ? <span className="count">{count}</span> : null}</NavLink>
-  );
+  const flat = groups.flatMap(([, items]) => items);
+  const current = flat.find(([to, , , end]) => (end ? location.pathname === to : location.pathname.startsWith(to))) || flat[0];
+  const CurrentIcon = current[1];
+  const scope = SCOPES.find(([k]) => location.pathname.startsWith(k))?.[1];
   return (
     <>
-      <Header />
+      <Header inPanel />
       <div className="panel">
-        <aside className="panel-side" aria-label="Menú del panel">
-          <div className="who"><Avatar name={user?.nombre} /><div className="grow"><b className="clamp-1">{user?.nombre}</b><span className="tiny">{user?.rol?.toLowerCase()}</span></div></div>
-          <div className="label">Mi cuenta</div>
-          <L to="/cuenta/favoritos" icon={Heart}>Favoritos</L>
-          <L to="/cuenta/asistencias" icon={Ticket}>Mis eventos</L>
-          <L to="/cuenta/intereses" icon={Sparkles}>Para ti</L>
-          <L to="/cuenta/notificaciones" icon={Bell} count={unread}>Notificaciones</L>
-          <L to="/cuenta/perfil" icon={User}>Perfil</L>
-          <div className="label">Organizador</div>
-          {isOrg && <L to="/organizador" icon={LayoutDashboard} end>Panel</L>}
-          {isOrg && <L to="/organizador/marketing" icon={BarChart3}>Marketing</L>}
-          <L to="/publicar" icon={Plus}>Publicar evento</L>
-          {user?.rol === 'ADMINISTRADOR' && (
-            <>
-              <div className="label">Administración</div>
-              <L to="/admin" icon={ShieldCheck} end>Resumen</L>
-              <L to="/admin/eventos" icon={CalendarDays}>Eventos</L>
-              <L to="/admin/usuarios" icon={User}>Usuarios</L>
-              <L to="/admin/categorias" icon={Compass}>Categorías</L>
-              <L to="/admin/reportes" icon={Bell}>Reportes</L>
-              <L to="/admin/auditoria" icon={Archive}>Auditoría</L>
-            </>
-          )}
+        <aside ref={sideRef} className={`panel-side ${navOpen ? 'open' : ''}`} aria-label="Menú del panel">
+          {/* Móvil: un botón con la sección actual abre el menú agrupado */}
+          <button type="button" className="panel-nav-toggle" aria-expanded={navOpen} aria-controls="panel-nav" onClick={() => setNavOpen((o) => !o)}>
+            <CurrentIcon size={18} /> <span className="grow">{current[2]}</span><ChevronDown size={18} className="chev" />
+          </button>
+          <nav id="panel-nav" className="panel-nav" aria-label="Panel">
+            {groups.map(([label, items]) => (
+              <div key={label} className="panel-group">
+                <div className="label">{label}</div>
+                {items.map(([to, icon, l, end, count]) => <SideLink key={to} to={to} icon={icon} label={l} end={end} count={count} />)}
+              </div>
+            ))}
+            {!isOrg && (
+              <Link to="/publicar" className="side-promo">
+                <b>¿Organizas eventos?</b>
+                <span>Publícalos gratis y llega a todo Abancay.</span>
+              </Link>
+            )}
+          </nav>
         </aside>
-        <section className="panel-main"><Outlet /></section>
+        <main id="contenido" className="panel-main page-enter" key={location.pathname}>
+          {scope && <span className="ph-eyebrow">{scope}</span>}
+          <Outlet />
+        </main>
       </div>
+      {/* En el formulario de publicación la barra inferior competiría con sus botones */}
+      {!(location.pathname.startsWith('/publicar') || location.pathname.endsWith('/editar')) && <TabBar />}
     </>
   );
 }

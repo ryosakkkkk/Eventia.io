@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarDays, Users, FileClock, Flag, Eye, Heart, UserCheck, PlayCircle, Archive } from 'lucide-react';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
+import { CalendarDays, Users, FileClock, Flag, Eye, Heart, UserCheck, PlayCircle, Archive, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { api } from '../../api';
 import { useApp } from '../../context/AppContext';
 import { Loader } from '../../components/ui';
+import { LineTrend, SERIES_COLOR } from '../../components/charts';
 import { addDaysISO, fmt, shortCat, todayISO } from '../../lib/format';
-import { buildSeries } from '../organizer/Marketing';
+import { buildSeries, KpiTile } from '../organizer/Marketing';
 
 function BarList({ items, valueKey = 'n', labelKey = 'nombre', link }) {
   const max = Math.max(1, ...items.map((i) => i[valueKey]));
@@ -41,38 +41,48 @@ export default function AdminDashboard() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Panel de administración</h1><p>Supervisa publicaciones, usuarios, categorías y reportes.</p></div>
+        <div><h1>Resumen</h1><p>Supervisa publicaciones, usuarios, categorías y reportes.</p></div>
         <div className="row-wrap">
           <input type="date" className="input" style={{ width: 160, height: 46 }} value={range.desde} max={range.hasta} onChange={(e) => setRange({ ...range, desde: e.target.value })} aria-label="Desde" />
           <input type="date" className="input" style={{ width: 160, height: 46 }} value={range.hasta} min={range.desde} max={todayISO()} onChange={(e) => setRange({ ...range, hasta: e.target.value })} aria-label="Hasta" />
           <button className="btn btn-light btn-sm" onClick={runJobs} title="Archiva eventos pasados y envía recordatorios"><PlayCircle size={16} /> Ejecutar tareas</button>
         </div>
       </div>
-      <div className="kpis">
-        {[[CalendarDays, 'Eventos registrados', t.eventos, '#2f4fe0', '/admin/eventos'], [FileClock, 'Pendientes de validación', t.pendientes, '#b45309', '/admin/eventos?estado=PENDIENTE_DE_VALIDACION'],
-          [Flag, 'Reportes abiertos', t.reportes_abiertos, '#e11d48', '/admin/reportes'], [Users, 'Usuarios verificados', t.usuarios, '#7c3aed', '/admin/usuarios'],
-          [UserCheck, 'Nuevos en el periodo', t.nuevos_usuarios, '#0284c7'], [Eye, 'Vistas en el periodo', t.visualizaciones, '#16a34a'],
-          [Heart, 'Favoritos en el periodo', t.favoritos, '#e11d48'], [Archive, 'Archivados', t.archivados, '#64748b', '/admin/eventos?estado=ARCHIVADOS']].map(([Icon, label, v, color, to]) => {
-          const inner = <><span className="ic" style={{ background: `${color}15`, color }}><Icon size={19} /></span><b>{fmt(v)}</b><span>{label}</span></>;
-          return to ? <Link key={label} to={to} className="kpi">{inner}</Link> : <div key={label} className="kpi">{inner}</div>;
-        })}
+      {/* Primero lo que requiere una acción del administrador */}
+      <div className="attention-grid mb-3">
+        {[
+          [FileClock, t.pendientes, 'evento pendiente de validación', 'eventos pendientes de validación', 'Revisar', '/admin/eventos'],
+          [Flag, t.reportes_abiertos, 'reporte de la comunidad sin resolver', 'reportes de la comunidad sin resolver', 'Atender', '/admin/reportes'],
+        ].map(([Icon, n, one, many, cta, to]) => (
+          n > 0 ? (
+            <Link key={to} to={to} className="attention">
+              <Icon size={20} /><div className="grow"><b>{n} {n === 1 ? one : many}</b><span className="small muted">Requiere tu revisión</span></div>
+              <span className="btn btn-light btn-sm">{cta} <ArrowRight size={15} /></span>
+            </Link>
+          ) : (
+            <div key={to} className="attention ok"><CheckCircle2 size={20} /><div className="grow"><b>Sin {many.split(' ')[0]} por revisar</b><span className="small muted">Todo al día</span></div></div>
+          )
+        ))}
       </div>
-      <div className="card chart-card mb-3">
-        <h3>Interacciones en la plataforma</h3>
-        <div style={{ height: 300 }}>
-          <ResponsiveContainer>
-            <AreaChart data={chart} margin={{ left: -18, right: 8, top: 6 }}>
-              <CartesianGrid stroke="#eef1f6" vertical={false} />
-              <XAxis dataKey="dia" tick={{ fontSize: 11, fill: '#6b7890' }} tickLine={false} axisLine={false} minTickGap={18} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#6b7890' }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #e4e9f2', fontSize: 13 }} />
-              <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Area type="monotone" dataKey="VISUALIZACION" name="Vistas" stroke="#2f4fe0" fill="#2f4fe022" strokeWidth={2} />
-              <Area type="monotone" dataKey="FAVORITO" name="Favoritos" stroke="#e11d48" fill="#e11d4815" strokeWidth={2} />
-              <Area type="monotone" dataKey="ASISTENCIA" name="Asistiré" stroke="#16a34a" fill="#16a34a15" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+
+      <div className="kpis kpis-3">
+        <KpiTile icon={CalendarDays} label="Eventos registrados" value={t.eventos} color="#475569" to="/admin/eventos" />
+        <KpiTile icon={Users} label="Usuarios verificados" value={t.usuarios} color="#475569" to="/admin/usuarios" />
+        <KpiTile icon={UserCheck} label="Nuevos en el periodo" value={t.nuevos_usuarios} color="#475569" />
+        <KpiTile icon={Eye} label="Vistas en el periodo" value={t.visualizaciones} color={SERIES_COLOR.VISUALIZACION} />
+        <KpiTile icon={Heart} label="Favoritos en el periodo" value={t.favoritos} color={SERIES_COLOR.FAVORITO} />
+        <KpiTile icon={Archive} label="Archivados" value={t.archivados} color="#475569" to="/admin/eventos?estado=ARCHIVADOS" />
+      </div>
+
+      <div className="dash-grid mb-3">
+        <section className="card chart-card">
+          <div className="chart-head"><h3>Vistas por día</h3><span className="muted small">{fmt(t.visualizaciones)} en el periodo</span></div>
+          <LineTrend data={chart} series={[{ key: 'VISUALIZACION', label: 'Vistas', color: SERIES_COLOR.VISUALIZACION }]} height={240} label="Vistas por día" />
+        </section>
+        <section className="card chart-card">
+          <div className="chart-head"><h3>Favoritos y asistencias por día</h3></div>
+          <LineTrend data={chart} series={[{ key: 'FAVORITO', label: 'Favoritos', color: SERIES_COLOR.FAVORITO }, { key: 'ASISTENCIA', label: 'Asistiré', color: SERIES_COLOR.ASISTENCIA }]} height={240} label="Favoritos y asistencias por día" />
+        </section>
       </div>
       <div className="grid-2" style={{ alignItems: 'start' }}>
         <div className="card chart-card"><h3>Eventos más visualizados</h3><BarList items={data.topVistos} link /></div>

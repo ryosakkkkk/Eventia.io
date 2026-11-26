@@ -44,12 +44,15 @@ export default function Profile() {
         <div className="grow">
           <h2>{user.nombre}</h2>
           <p className="muted small">{user.correo}</p>
-          <span className="badge badge-green mt-1"><BadgeCheck size={13} /> Correo verificado</span>
+          <div className="row-wrap mt-1" style={{ gap: 6 }}>
+            <span className="badge badge-green"><BadgeCheck size={13} /> Correo verificado</span>
+            <span className="badge badge-gray">{user.rol === 'ADMINISTRADOR' ? 'Administrador' : user.rol === 'ORGANIZADOR' ? 'Organizador' : 'Usuario'}</span>
+          </div>
         </div>
       </div>
-      <div className="kpis">
+      <div className="kpis kpis-4">
         {stats.map(([Icon, label, v, to]) => (
-          <Link key={label} to={to} className="kpi"><span className="ic" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}><Icon size={19} /></span><b>{v ?? '–'}</b><span>{label}</span></Link>
+          <Link key={label} to={to} className="kpi"><span className="kpi-top"><span className="kpi-label">{label}</span><span className="ic" style={{ background: 'var(--brand-soft)', color: 'var(--orange-700)' }}><Icon size={17} /></span></span><b>{v ?? '–'}</b></Link>
         ))}
       </div>
       <div className="grid-2" style={{ alignItems: 'start' }}>

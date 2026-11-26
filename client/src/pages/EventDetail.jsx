@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  CalendarDays, CalendarPlus, Check, Clock, Facebook, Flag, Globe, Heart, Instagram, MapPin, MessageCircle,
+  CalendarCheck, CalendarDays, CalendarPlus, Check, Sparkles, Clock, Facebook, Flag, Globe, Heart, Instagram, MapPin, MessageCircle,
   Navigation, Phone, Share2, Star, Ticket, Users, Eye, Mic2, AlertTriangle, Pencil, QrCode, ChevronRight,
 } from 'lucide-react';
 import { api, track } from '../api';
@@ -10,7 +10,7 @@ import { useApp, useRequireLogin } from '../context/AppContext';
 import { EventCard, imgOf } from '../components/EventCard';
 import { MapView } from '../components/MapView';
 import { ShareModal, ReportModal, QrModal } from '../components/Modals';
-import { Avatar, Countdown, EmptyState, Loader, Stars, StarsInput, StatusBadge } from '../components/ui';
+import { Avatar, Countdown, EmptyState, Stars, StarsInput, StatusBadge, prefersReducedMotion } from '../components/ui';
 import {
   availability, catStyle, dateChip, downloadIcs, fmt, googleCalendarLink, hora12, longDate, mapsLink, relativeDay,
   shortCat, timeAgo, waLink, wazeLink,
@@ -39,6 +39,48 @@ function RatingForm({ ev, onDone }) {
   );
 }
 
+// Esqueleto con la misma forma de la página; aparece solo si la carga tarda (evita parpadeos)
+function DetailSkeleton() {
+  const [show, setShow] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setShow(true), 250); return () => clearTimeout(t); }, []);
+  if (!show) return <div style={{ minHeight: '100vh' }} />;
+  return (
+    <div aria-busy="true" aria-label="Cargando evento">
+      <div className="detail-band">
+        <div className="container">
+          <div className="crumbs"><span className="skel on-dark" style={{ width: 220, height: 14 }} /></div>
+          <div className="detail-hero skel on-dark" />
+        </div>
+      </div>
+      <div className="container">
+        <div className="detail-grid">
+          <div className="stack">
+            <div className="skel" style={{ width: 160, height: 26, borderRadius: 99 }} />
+            <div className="skel" style={{ width: '80%', height: 44 }} />
+            <div className="skel" style={{ width: '45%', height: 16 }} />
+            <div className="facts"><div className="skel" style={{ height: 110 }} /><div className="skel" style={{ height: 110 }} /></div>
+            <div className="skel" style={{ height: 14 }} /><div className="skel" style={{ height: 14, width: '92%' }} /><div className="skel" style={{ height: 14, width: '70%' }} />
+          </div>
+          <div className="card card-pad stack"><div className="skel" style={{ height: 70 }} /><div className="skel" style={{ height: 12 }} /><div className="skel" style={{ height: 58, borderRadius: 99 }} /></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const CONFETTI_COLORS = ['#2f4fe0', '#7c3aed', '#ff6a13', '#16a34a', '#e11d48', '#f59e0b'];
+function Confetti() {
+  const pieces = Array.from({ length: 18 }, (_, i) => {
+    const angle = (i / 18) * Math.PI * 2;
+    const dist = 70 + (i % 4) * 22;
+    return {
+      '--x': `${Math.cos(angle) * dist}px`, '--y': `${Math.sin(angle) * dist - 30}px`,
+      '--r': `${(i % 2 ? 1 : -1) * (180 + i * 25)}deg`, '--c': CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    };
+  });
+  return <span className="confetti" aria-hidden="true">{pieces.map((s, i) => <i key={i} style={s} />)}</span>;
+}
+
 export default function EventDetail() {
   const { id } = useParams();
   const { user, toast } = useApp();
@@ -48,17 +90,32 @@ export default function EventDetail() {
   const [modal, setModal] = useState(null);
   const [busy, setBusy] = useState(false);
   const [portrait, setPortrait] = useState(false);
+  const [celebrate, setCelebrate] = useState(0);
   const credits = useCredits();
 
   const load = useCallback(() => api.get(`/events/${id}`).then(setData).catch((e) => setError(e)), [id]);
   useEffect(() => { setData(null); setError(null); load(); track(id, 'VISUALIZACION'); }, [id, load]); // RF43
   useEffect(() => { if (data) document.title = `${data.evento.nombre} · Eventia`; return () => { document.title = 'Eventia · Descubre · Conecta · Vive'; }; }, [data]);
+  // Paralaje suave del fondo difuminado: se mueve más lento que la página
+  const bgRef = useRef(null);
+  useEffect(() => {
+    if (!data || prefersReducedMotion()) return undefined;
+    let raf = 0;
+    const on = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (bgRef.current) bgRef.current.style.transform = `translate3d(0, ${Math.min(window.scrollY, 900) * 0.3}px, 0)`;
+      });
+    };
+    window.addEventListener('scroll', on, { passive: true });
+    return () => { window.removeEventListener('scroll', on); cancelAnimationFrame(raf); };
+  }, [data]);
 
   if (error) return (
     <div className="container section"><EmptyState icon={AlertTriangle} title="Evento no disponible" text={error.message}
       action={<Link to="/explorar" className="btn btn-primary">Explorar eventos</Link>} /></div>
   );
-  if (!data) return <Loader />;
+  if (!data) return <DetailSkeleton />;
   const ev = data.evento;
   const c = ev.contacto || {};
   const chip = dateChip(ev.fecha);
@@ -68,25 +125,43 @@ export default function EventDetail() {
   const pct = ev.capacidad > 0 ? Math.round((ev.entradas_disponibles / ev.capacidad) * 100) : 100;
   const msg = `Hola, vi "${ev.nombre}" en Eventia y quisiera más información.`;
 
-  const toggleFav = async () => {
-    if (!requireLogin('Inicia sesión para guardar eventos.')) return;
-    const next = !ev.es_favorito;
-    setData((d) => ({ ...d, evento: { ...d.evento, es_favorito: next } }));
+  const patch = (fn) => setData((d) => ({ ...d, evento: { ...d.evento, ...fn(d.evento) } }));
+
+  const setFav = async (next, { silent } = {}) => {
+    patch((e) => ({ es_favorito: next, total_favoritos: Math.max(0, (e.total_favoritos || 0) + (next ? 1 : -1)) }));
+    if (next) navigator.vibrate?.(12);
     try {
       await (next ? api.post(`/events/${ev.id}/favorite`) : api.del(`/events/${ev.id}/favorite`));
-      toast(next ? 'Guardado en favoritos. Te recordaremos antes del evento.' : 'Quitado de favoritos', next ? 'success' : 'info');
+      if (silent) return;
+      if (next) toast('Guardado en favoritos. Te recordaremos antes del evento.');
+      else toast('Quitado de favoritos', 'info', { action: { label: 'Deshacer', onClick: () => setFav(true, { silent: true }) } });
     } catch (e) { toast(e.message, 'error'); load(); }
   };
+  const toggleFav = () => requireLogin('Inicia sesión para guardar eventos.') && setFav(!ev.es_favorito);
+
+  // Asistencia optimista: el botón cambia al instante; si el servidor rechaza, se recarga el estado real
   const toggleAttend = async () => {
     if (!requireLogin('Inicia sesión para confirmar tu asistencia.')) return;
+    const next = !ev.asistire;
     setBusy(true);
+    patch((e) => ({ asistire: next, total_asistencias: Math.max(0, (e.total_asistencias || 0) + (next ? 1 : -1)) }));
+    if (next) { navigator.vibrate?.([10, 40, 18]); if (!prefersReducedMotion()) setCelebrate((c) => c + 1); }
     try {
-      const r = ev.asistire ? await api.del(`/events/${ev.id}/attend`) : await api.post(`/events/${ev.id}/attend`);
-      toast(r.asistire ? '¡Listo! Te enviaremos recordatorios antes del evento.' : 'Cancelaste tu asistencia', r.asistire ? 'success' : 'info');
-      await load();
-    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+      const r = next ? await api.post(`/events/${ev.id}/attend`) : await api.del(`/events/${ev.id}/attend`);
+      if (r.asistire) toast('¡Listo! Te recordaremos antes del evento.', 'success', { action: { label: 'Agregar al calendario', onClick: () => downloadIcs(ev) } });
+      else toast('Cancelaste tu asistencia', 'info');
+      load();
+    } catch (e) { toast(e.message, 'error'); load(); } finally { setBusy(false); }
   };
   const report = () => requireLogin('Inicia sesión para reportar un evento.') && setModal('report');
+  // En celulares se abre el menú nativo de compartir (menos pasos); en escritorio, nuestras opciones
+  const share = async () => {
+    if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
+      try { await navigator.share({ title: ev.nombre, text: `¡Mira este evento en Eventia! ${ev.nombre}`, url: `${location.origin}/evento/${ev.id}` }); track(ev.id, 'COMPARTIDO'); } catch { /* cancelado */ }
+      return;
+    }
+    setModal('share');
+  };
 
   const ContactButtons = ({ compact }) => (
     <div className={compact ? 'row' : 'contact-grid'} style={compact ? { gap: 8 } : undefined}>
@@ -107,22 +182,53 @@ export default function EventDetail() {
     <div className={activo ? 'has-mobile-cta' : ''}>
       {/* Banda de portada a todo el ancho con el afiche grande */}
       <div className="detail-band">
-        <div className="bg" style={{ backgroundImage: `url("${imgOf(ev)}")` }} aria-hidden="true" />
+        <div className="bg" ref={bgRef} style={{ backgroundImage: `url("${imgOf(ev)}")` }} aria-hidden="true" />
         <div className="container">
           <nav className="crumbs" aria-label="Ruta">
             <Link to="/">Inicio</Link><ChevronRight size={15} />
             <Link to={`/explorar?categoria=${ev.id_categoria}`}>{shortCat(ev.categoria)}</Link><ChevronRight size={15} />
             <span className="clamp-1">{ev.nombre}</span>
           </nav>
+          <div className="detail-top">
           <div className={`detail-hero ${portrait ? 'portrait' : ''}`}>
             {/* Afiches verticales se muestran completos; fotos horizontales llenan el espacio */}
             <img src={imgOf(ev)} alt={`Afiche de ${ev.nombre}`} onLoad={(e) => setPortrait(e.currentTarget.naturalHeight > e.currentTarget.naturalWidth * 0.8)} />
-            <div className="hero-actions">
+            {!activo && <div className="hero-actions">
               <button className="icon-btn" onClick={toggleFav} aria-label={ev.es_favorito ? 'Quitar de favoritos' : 'Guardar'} style={{ color: ev.es_favorito ? 'var(--red)' : undefined }}>
                 <Heart size={21} fill={ev.es_favorito ? 'currentColor' : 'none'} />
               </button>
-              <button className="icon-btn" onClick={() => setModal('share')} aria-label="Compartir"><Share2 size={21} /></button>
+              <button className="icon-btn" onClick={share} aria-label="Compartir"><Share2 size={21} /></button>
+            </div>}
+          </div>
+          <header className="detail-head">
+            <div className="row-wrap" style={{ gap: 8 }}>
+              <span className="badge badge-glass"><CatIcon size={14} /> {shortCat(ev.categoria)}</span>
+              {ev.destacado && <span className="badge badge-glass-violet"><Sparkles size={13} /> Destacado</span>}
+              {relativeDay(ev.fecha) && activo && <span className="badge badge-glass-orange">{relativeDay(ev.fecha)}</span>}
+              {!activo && <StatusBadge estado={ev.pasado && ev.estado !== 'ARCHIVADO' ? 'FINALIZADO' : ev.estado} />}
             </div>
+            <h1 className="detail-title">{ev.nombre}</h1>
+            <ul className="dh-facts">
+              <li><CalendarDays size={20} /><span><b>{longDate(ev.fecha)}</b><small>{hora12(ev.hora)} · hora de Perú</small></span></li>
+              <li><MapPin size={20} /><span><b>{ev.lugar}</b><small>{ev.direccion}, {ev.ciudad}</small></span></li>
+            </ul>
+            {ev.total_asistencias > 0 && (
+              <p className="dh-going"><Users size={16} /> {fmt(ev.total_asistencias)} {ev.total_asistencias === 1 ? 'persona asistirá' : 'personas asistirán'}
+                {ev.rating && <span className="rating"><Star size={14} fill="currentColor" /> {ev.rating}</span>}</p>
+            )}
+            {activo && (
+              <div className="dh-cta">
+                <button className={`btn btn-lg attend-btn ${ev.asistire ? 'btn-active' : 'btn-primary'}`} onClick={toggleAttend} disabled={busy} aria-pressed={!!ev.asistire}>
+                  {ev.asistire ? <><Check size={19} /> Asistirás</> : <><CalendarCheck size={19} /> Asistiré</>}
+                  {celebrate > 0 && ev.asistire && <Confetti key={`h${celebrate}`} />}
+                </button>
+                <button className="icon-btn glass-btn" onClick={toggleFav} aria-pressed={!!ev.es_favorito} aria-label={ev.es_favorito ? 'Quitar de favoritos' : 'Guardar'} title="Guardar">
+                  <Heart size={20} fill={ev.es_favorito ? 'currentColor' : 'none'} style={{ color: ev.es_favorito ? '#fb7185' : undefined }} />
+                </button>
+                <button className="icon-btn glass-btn" onClick={share} aria-label="Compartir" title="Compartir"><Share2 size={20} /></button>
+              </div>
+            )}
+          </header>
           </div>
           {creditFor(credits, ev.imagen) && (() => {
             const cr = creditFor(credits, ev.imagen);
@@ -149,20 +255,6 @@ export default function EventDetail() {
 
       <div className="detail-grid">
         <article>
-          <div className="row-wrap" style={{ gap: 8 }}>
-            <span className="badge" style={{ background: `${color}15`, color }}><CatIcon size={15} /> {ev.categoria}</span>
-            <span className="badge badge-gray"><MapPin size={14} /> {ev.ciudad}</span>
-            {ev.destacado && <span className="badge badge-violet">★ Destacado</span>}
-            {relativeDay(ev.fecha) && activo && <span className="badge badge-orange">{relativeDay(ev.fecha)}</span>}
-            {!activo && <StatusBadge estado={ev.pasado && ev.estado !== 'ARCHIVADO' ? 'FINALIZADO' : ev.estado} />}
-          </div>
-          <h1 className="detail-title">{ev.nombre}</h1>
-          <div className="row-wrap muted small" style={{ gap: 16 }}>
-            <span className="row" style={{ gap: 6 }}><Eye size={15} /> {fmt(ev.visualizaciones)} vistas</span>
-            <span className="row" style={{ gap: 6 }}><Heart size={15} /> {fmt(ev.total_favoritos)} guardados</span>
-            <span className="row" style={{ gap: 6 }}><Users size={15} /> {fmt(ev.total_asistencias)} asistirán</span>
-            {ev.rating && <span className="row rating" style={{ gap: 4 }}><Star size={15} fill="currentColor" /> {ev.rating} ({ev.total_valoraciones})</span>}
-          </div>
 
           <div className="facts">
             <div className="fact">
@@ -282,14 +374,21 @@ export default function EventDetail() {
                     </>
                   )}
                 </div>
-                <button className={`btn btn-lg btn-block ${ev.asistire ? 'btn-active' : 'btn-grad'}`} onClick={toggleAttend} disabled={busy}>
-                  {ev.asistire ? <><Check size={19} /> Asistiré · cancelar</> : <><CalendarDays size={19} /> Asistiré</>}
+                <button className={`btn btn-lg btn-block attend-btn ${ev.asistire ? 'btn-active' : 'btn-grad'}`} onClick={toggleAttend} disabled={busy}
+                  aria-pressed={!!ev.asistire}>
+                  {ev.asistire ? <><Check size={19} /> Asistirás</> : <><CalendarCheck size={19} /> Asistiré</>}
+                  {celebrate > 0 && ev.asistire && <Confetti key={celebrate} />}
                 </button>
+                {ev.asistire && (
+                  <p className="tiny muted center" style={{ marginTop: -6 }}>
+                    <button className="link" onClick={() => downloadIcs(ev)}>Agregar al calendario</button> · <button className="link" onClick={toggleAttend} disabled={busy}>Ya no asistiré</button>
+                  </p>
+                )}
                 <div className="contact-grid">
-                  <button className={`btn btn-light ${ev.es_favorito ? 'fav-on' : ''}`} onClick={toggleFav} style={{ color: ev.es_favorito ? 'var(--red)' : undefined }}>
+                  <button className={`btn btn-light ${ev.es_favorito ? 'fav-on' : ''}`} onClick={toggleFav} aria-pressed={!!ev.es_favorito} style={{ color: ev.es_favorito ? 'var(--red)' : undefined }}>
                     <Heart size={17} fill={ev.es_favorito ? 'currentColor' : 'none'} /> {ev.es_favorito ? 'Guardado' : 'Guardar'}
                   </button>
-                  <button className="btn btn-light" onClick={() => setModal('share')}><Share2 size={17} /> Compartir</button>
+                  <button className="btn btn-light" onClick={share}><Share2 size={17} /> Compartir</button>
                 </div>
                 <hr className="divider" style={{ margin: '4px 0' }} />
                 <span className="small bold">Contactar al organizador</span>
@@ -334,9 +433,19 @@ export default function EventDetail() {
               <MessageCircle size={19} />
             </a>
           )}
-          <button className={`btn grow ${ev.asistire ? 'btn-active' : 'btn-grad'}`} style={{ height: 52 }} onClick={toggleAttend} disabled={busy}>
-            {ev.asistire ? <><Check size={18} /> Asistiré</> : 'Asistiré'}
-          </button>
+          {ev.asistire ? (
+            <>
+              <button className="icon-btn bordered" style={{ width: 52, height: 52 }} onClick={() => downloadIcs(ev)} aria-label="Agregar al calendario"><CalendarPlus size={19} /></button>
+              <button className="btn btn-active attend-btn grow" style={{ height: 52 }} onClick={toggleAttend} disabled={busy} aria-pressed="true" aria-label="Asistirás. Toca para cancelar">
+                <Check size={18} /> Asistirás
+                {celebrate > 0 && <Confetti key={celebrate} />}
+              </button>
+            </>
+          ) : (
+            <button className="btn grow btn-grad attend-btn" style={{ height: 52 }} onClick={toggleAttend} disabled={busy} aria-pressed="false">
+              <CalendarCheck size={18} /> Asistiré
+            </button>
+          )}
         </div>
       )}
 
