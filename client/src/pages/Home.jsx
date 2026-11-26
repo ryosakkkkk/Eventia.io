@@ -6,57 +6,75 @@ import {
 } from 'lucide-react';
 import { api, qs } from '../api';
 import { useApp } from '../context/AppContext';
-import { EventCard, RankCard, imgOf } from '../components/EventCard';
+import { EventCard, EventMedia, RankCard, imgOf } from '../components/EventCard';
 import { Rail } from '../components/Rail';
-import { Countdown, EmptyState, SkeletonGrid } from '../components/ui';
+import { Countdown, CountUp, EmptyState, Reveal, SkeletonGrid, prefersReducedMotion } from '../components/ui';
 import { CITIES_FALLBACK } from '../components/Layout';
 import { catStyle, shortCat, longDate, shortDate, hora12, relativeDay, fmt } from '../lib/format';
 
 const SLIDE_MS = 6500;
 
-/* ---------- Láminas destacadas: deslizan solas, con flechas, puntos, miniaturas y gesto táctil ---------- */
+/* ---------- Láminas destacadas: escenario principal de la portada ----------
+   Zoom lento (Ken Burns), texto que entra por capas, segmentos tipo historias, arrastre con mouse o dedo
+   y flechas del teclado. El avance lo marca la animación del segmento activo: al pausar se detiene todo. */
 function Showcase({ eventos, onActive }) {
   const [i, setI] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const touch = useRef(null);
+  const [hover, setHover] = useState(false);
+  const [pressed, setPressed] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
+  const drag = useRef(null);
+  const dragged = useRef(false);
+  const reduced = prefersReducedMotion();
   const n = eventos.length;
+  const paused = hover || pressed || userPaused || reduced;
   const go = useCallback((k) => setI(((k % n) + n) % n), [n]);
   useEffect(() => { onActive?.(eventos[i]); }, [i, eventos, onActive]);
-  useEffect(() => {
-    if (paused || n < 2) return undefined;
-    const t = setTimeout(() => go(i + 1), SLIDE_MS);
-    return () => clearTimeout(t);
-  }, [i, paused, n, go]);
 
   if (!n) return (
-    <div className="showcase"><div className="slider skel" /><div className="thumbs-wrap"><div className="thumbs">{[0, 1, 2, 3].map((k) => <div key={k} className="thumb-tile skel" />)}</div></div></div>
+    <div className="showcase"><div className="slider skel on-dark" /><div className="thumbs-wrap"><div className="thumbs">{[0, 1, 2, 3].map((k) => <div key={k} className="thumb-tile skel on-dark" />)}</div></div></div>
   );
-  const onTouchStart = (e) => { touch.current = e.touches[0].clientX; setPaused(true); };
-  const onTouchEnd = (e) => {
-    const dx = e.changedTouches[0].clientX - (touch.current ?? 0);
-    if (Math.abs(dx) > 40) go(i + (dx < 0 ? 1 : -1));
-    touch.current = null;
-    setPaused(false);
+
+  const onPointerDown = (e) => { drag.current = { x: e.clientX, y: e.clientY }; dragged.current = false; setPressed(true); };
+  const onPointerMove = (e) => {
+    if (!drag.current) return;
+    if (Math.abs(e.clientX - drag.current.x) > 10 && Math.abs(e.clientX - drag.current.x) > Math.abs(e.clientY - drag.current.y)) dragged.current = true;
+  };
+  const endDrag = (e) => {
+    const d = drag.current;
+    drag.current = null;
+    setPressed(false);
+    if (!d) return;
+    const dx = e.clientX - d.x;
+    if (dragged.current && Math.abs(dx) > 48) go(i + (dx < 0 ? 1 : -1));
+  };
+  // Si hubo arrastre, el clic no abre el evento
+  const onClickCapture = (e) => { if (dragged.current) { e.preventDefault(); e.stopPropagation(); dragged.current = false; } };
+  const onKeyDown = (e) => {
+    if (e.key === 'ArrowRight') { e.preventDefault(); go(i + 1); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); go(i - 1); }
   };
 
   return (
-    <div className="showcase" style={{ '--dur': `${SLIDE_MS}ms` }}>
-      <div className="slider" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
-        onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} aria-roledescription="carrusel" aria-label="Eventos destacados">
+    <div className={`showcase ${paused ? 'is-paused' : ''}`} style={{ '--dur': `${SLIDE_MS}ms` }}>
+      <div className="slider" onMouseEnter={() => setHover(true)} onMouseLeave={() => { setHover(false); setPressed(false); drag.current = null; }}
+        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={endDrag} onPointerCancel={() => { drag.current = null; setPressed(false); }}
+        onClickCapture={onClickCapture} onKeyDown={onKeyDown} onFocus={() => setHover(true)} onBlur={() => setHover(false)}
+        aria-roledescription="carrusel" aria-label="Eventos destacados" role="region">
         <div className="slider-track" style={{ transform: `translateX(-${i * 100}%)` }}>
           {eventos.map((ev, k) => {
             const rel = relativeDay(ev.fecha);
             return (
-              <Link key={ev.id} to={`/evento/${ev.id}`} className="slide" aria-hidden={k !== i} tabIndex={k === i ? 0 : -1}>
-                <img src={imgOf(ev)} alt="" loading={k === 0 ? 'eager' : 'lazy'} />
+              <Link key={ev.id} to={`/evento/${ev.id}`} className={`slide ${k === i ? 'active' : ''}`} aria-hidden={k !== i} tabIndex={k === i ? 0 : -1}
+                aria-roledescription="lámina" aria-label={`${k + 1} de ${n}: ${ev.nombre}`} draggable="false">
+                <div className="slide-media" style={{ '--c': catStyle(ev.categoria).color }}>{ev.imagen ? <img src={ev.imagen} alt="" loading={k === 0 ? 'eager' : 'lazy'} draggable="false" /> : <EventMedia ev={ev} />}</div>
                 <div className="slide-info">
-                  <div className="row-wrap" style={{ gap: 8 }}>
-                    {ev.destacado && <span className="badge badge-solid-blue"><Sparkles size={13} /> Destacado</span>}
-                    <span className="badge badge-white">{shortCat(ev.categoria)}</span>
-                    {rel && <span className="badge badge-orange">{rel}</span>}
-                    {ev.disponibilidad === 'LIBRE' && <span className="badge badge-green">Entrada libre</span>}
-                    {ev.disponibilidad === 'ULTIMOS' && <span className="badge badge-orange">Últimos cupos</span>}
-                    {ev.disponibilidad === 'AGOTADO' && <span className="badge badge-red">Agotado</span>}
+                  <div className="row-wrap slide-badges" style={{ gap: 8 }}>
+                    {ev.destacado && <span className="badge badge-glass-violet"><Sparkles size={13} /> Destacado</span>}
+                    <span className="badge badge-glass">{shortCat(ev.categoria)}</span>
+                    {rel && <span className="badge badge-glass-orange">{rel}</span>}
+                    {ev.disponibilidad === 'LIBRE' && <span className="badge badge-glass">Entrada libre</span>}
+                    {ev.disponibilidad === 'ULTIMOS' && <span className="badge badge-glass-orange">Últimos cupos</span>}
+                    {ev.disponibilidad === 'AGOTADO' && <span className="badge badge-glass">Agotado</span>}
                   </div>
                   <h3>{ev.nombre}</h3>
                   <div className="slide-meta">
@@ -65,29 +83,35 @@ function Showcase({ eventos, onActive }) {
                     <span><MapPin size={17} /> {ev.lugar} · {ev.ciudad}</span>
                   </div>
                   <div className="slide-cta">
-                    <span className="btn btn-orange"><Ticket size={18} /> Ver evento</span>
+                    <span className="btn btn-orange">Ver evento <ArrowRight size={17} /></span>
                   </div>
                 </div>
               </Link>
             );
           })}
         </div>
-        <div className="dots" role="tablist">
-          {eventos.map((ev, k) => <button key={ev.id} className={k === i ? 'active' : ''} onClick={() => go(k)} aria-label={`Lámina ${k + 1}`} aria-selected={k === i} role="tab" />)}
+        <div className="segments" role="group" aria-label="Láminas">
+          {eventos.map((ev, k) => (
+            <button key={ev.id} type="button" className={k < i ? 'done' : k === i ? 'active' : ''} onClick={() => go(k)}
+              aria-label={`Ir a la lámina ${k + 1} de ${n}`} aria-current={k === i ? 'true' : undefined}>
+              <i key={k === i ? `on-${i}` : 'off'} onAnimationEnd={k === i && !reduced ? (e) => e.animationName === 'seg-fill' && go(i + 1) : undefined} />
+            </button>
+          ))}
         </div>
         <div className="slider-ctrl">
           <button className="ctrl-arrow" onClick={() => go(i - 1)} aria-label="Anterior"><ChevronLeft size={22} /></button>
-          <button onClick={() => setPaused((p) => !p)} aria-label={paused ? 'Reanudar' : 'Pausar'}>{paused ? <Play size={17} /> : <Pause size={17} />}</button>
+          {!reduced && (
+            <button onClick={() => setUserPaused((p) => !p)} aria-label={userPaused ? 'Reanudar' : 'Pausar'}>{userPaused ? <Play size={17} /> : <Pause size={17} />}</button>
+          )}
           <button className="ctrl-arrow" onClick={() => go(i + 1)} aria-label="Siguiente"><ChevronRight size={22} /></button>
         </div>
-        <div className={`slider-progress ${paused ? 'paused' : ''}`}><span key={`${i}-${paused}`} /></div>
       </div>
 
       <div className="thumbs-wrap">
-      <div className={`thumbs ${paused ? 'paused' : ''}`} aria-label="Otras láminas">
+      <div className="thumbs" aria-label="Otras láminas">
         {eventos.map((ev, k) => (
           <button key={ev.id} className={`thumb-tile ${k === i ? 'active' : ''}`} onClick={() => go(k)} aria-label={`Ver ${ev.nombre}`}>
-            <img src={imgOf(ev)} alt="" loading="lazy" />
+            <span className="tt-media" style={{ '--c': catStyle(ev.categoria).color }}>{ev.imagen ? <img src={ev.imagen} alt="" loading="lazy" /> : <EventMedia ev={ev} />}</span>
             <span className="tt">
               <small>{relativeDay(ev.fecha) || shortDate(ev.fecha)} · {hora12(ev.hora)}</small>
               <b className="clamp-2">{ev.nombre}</b>
@@ -189,7 +213,7 @@ function DiscoverTabs() {
           {tab === 'parati' && !data.personalizado && (
             <div className="form-note mb-2">Aún no conocemos tus gustos. <Link className="link" to="/cuenta/intereses">Elige tus intereses</Link> para mejorar estas recomendaciones.</div>
           )}
-          <div className="ev-grid">{data.eventos.map((ev) => <EventCard key={ev.id} ev={ev} />)}</div>
+          <Reveal className="ev-grid">{data.eventos.map((ev) => <EventCard key={ev.id} ev={ev} />)}</Reveal>
         </>
       )}
     </section>
@@ -254,50 +278,46 @@ export default function Home() {
       .then(setCatRails).catch(() => {});
   }, [categorias]);
 
-  const activeCats = categorias.filter((c) => c.proximos > 0).length;
   return (
     <>
       <section className="hero2">
         <div className="hero2-bg" style={active ? { backgroundImage: `url("${imgOf(active)}")` } : undefined} aria-hidden="true" />
+        {/* Aurora con los colores del logo: se mueve lento (12–20 s) solo con transform */}
+        <div className="aurora" aria-hidden="true"><i /><i /><i /></div>
         <div className="container">
           <div className="hero2-top">
-            <div>
-              <span className="hero-eyebrow"><MapPin size={15} /> Abancay · Apurímac</span>
+            <div className="hero-rise" style={{ '--d': '0ms' }}>
+              <span className="hero-eyebrow"><MapPin size={15} /> Abancay · Apurímac{total ? <> · <CountUp value={total} duration={900} /> {total === 1 ? 'evento próximo' : 'eventos próximos'}</> : null}</span>
               <h1>Encuentra tu próximo <span className="accent">gran momento</span></h1>
             </div>
-            <div className="hero-stats">
-              <div><b>{total ?? '–'}</b><span>eventos próximos</span></div>
-              <div><b>{activeCats || '–'}</b><span>categorías activas</span></div>
-              <div><b>100%</b><span>gratis para ti</span></div>
-            </div>
           </div>
-          <SearchCard />
-          <Showcase eventos={featured} onActive={setActive} />
+          <div className="hero-rise" style={{ '--d': '200ms' }}><SearchCard /></div>
+          <div className="hero-rise" style={{ '--d': '300ms' }}><Showcase eventos={featured} onActive={setActive} /></div>
         </div>
       </section>
 
       <section className="section container">
         <div className="section-head"><div><h2>Explora por categoría</h2><p>Encuentra algo que vaya contigo</p></div>
           <Link to="/explorar" className="see-all">Todo el catálogo <ArrowRight size={17} /></Link></div>
-        <div className="cat-row">
+        <Reveal className="cat-row">
           {categorias.map((c) => {
             const { Icon, color } = catStyle(c.nombre);
             return (
-              <Link key={c.id_categoria} to={`/explorar?categoria=${c.id_categoria}`} className="cat-item">
-                <span className="cat-circle" style={{ color, background: `${color}12`, borderColor: `${color}30` }}><Icon size={34} /></span>
+              <Link key={c.id_categoria} to={`/explorar?categoria=${c.id_categoria}`} className="cat-item" style={{ '--c': color }}>
+                <span className="cat-tile"><Icon size={30} strokeWidth={1.75} /></span>
                 {shortCat(c.nombre)}
                 <small>{c.proximos} {c.proximos === 1 ? 'evento' : 'eventos'}</small>
               </Link>
             );
           })}
-        </div>
+        </Reveal>
       </section>
 
       <DontMiss />
       <DiscoverTabs />
 
       {(top === null || top.length > 0) && (
-        <Rail title="Top 10 en Abancay esta semana" subtitle="Los eventos con más interés de la comunidad" link="/explorar?orden=popular" linkLabel="Ver ranking"
+        <Rail title={top && top.length < 10 ? 'Lo más popular esta semana' : 'Top 10 en Abancay esta semana'} subtitle="Los eventos con más interés de la comunidad" link="/explorar?orden=popular" linkLabel="Ver ranking"
           icon={<Flame size={24} color="var(--orange)" style={{ verticalAlign: '-3px', marginRight: 6 }} />}>
           {top === null ? railSkeleton() : top.map((ev, k) => <RankCard key={ev.id} ev={ev} n={k + 1} />)}
         </Rail>
@@ -321,6 +341,7 @@ export default function Home() {
 
       <div className="container">
         <div className="cta-band">
+          <div className="aurora" aria-hidden="true"><i /><i /><i /></div>
           <div>
             <span className="hero-eyebrow"><PartyPopper size={15} /> Para organizadores</span>
             <h2 className="mt-1">¿Organizas eventos en Apurímac? Publícalos gratis</h2>

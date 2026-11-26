@@ -5,8 +5,10 @@ import { api } from '../../api';
 import { useApp } from '../../context/AppContext';
 import { imgOf } from '../../components/EventCard';
 import { QrModal } from '../../components/Modals';
-import { EmptyState, Loader, Modal, StatusBadge } from '../../components/ui';
+import { EmptyState, Loader, Modal, RowMenu, StatusBadge } from '../../components/ui';
 import OrgProfileForm from '../../components/OrgProfileForm';
+import { Funnel, SERIES_COLOR } from '../../components/charts';
+import { KpiTile } from './Marketing';
 import { availability, fmt, shortDate, hora12 } from '../../lib/format';
 
 // HU14 – Gestionar entradas
@@ -65,55 +67,72 @@ export default function OrgDashboard() {
   return (
     <>
       <div className="page-head">
-        <div><h1>Panel del organizador</h1><p>Hola, {user.nombre.split(' ')[0]}. Administra tus publicaciones y revisa su rendimiento.</p></div>
+        <div><h1>Mis publicaciones</h1><p>Hola, {user.nombre.split(' ')[0]}. Administra tus publicaciones y revisa su rendimiento.</p></div>
         <div className="row">
           <button className="btn btn-light" onClick={() => setModal({ type: 'profile' })}><Building2 size={16} /> Perfil y contacto</button>
           <Link to="/publicar" className="btn btn-grad"><Plus size={16} /> Crear evento</Link>
         </div>
       </div>
 
-      <div className="kpis">
-        {[[CalendarDays, 'Eventos registrados', r.total, '#2f4fe0'], [CheckCircle2, 'Publicados', r.publicados, '#16a34a'], [FileClock, 'En validación / borrador', (r.pendientes || 0) + (r.borradores || 0), '#b45309'],
-          [Eye, 'Vistas (30 días)', t.visualizaciones, '#7c3aed'], [Heart, 'Guardados (30 días)', t.favoritos, '#e11d48'], [MessageCircle, 'Clics de contacto', (t.clics_whatsapp || 0) + (t.clics_llamada || 0), '#1fae58']].map(([Icon, label, v, color]) => (
-          <div key={label} className="kpi"><span className="ic" style={{ background: `${color}15`, color }}><Icon size={19} /></span><b>{fmt(v)}</b><span>{label}</span></div>
-        ))}
+      {r.borradores > 0 && (
+        <div className="attention mb-3">
+          <FileClock size={20} />
+          <div className="grow"><b>Tienes {r.borradores} {r.borradores === 1 ? 'borrador sin enviar' : 'borradores sin enviar'}</b>
+            <span className="small muted">Envíalos a revisión para que el público pueda verlos.</span></div>
+          <button className="btn btn-light btn-sm" onClick={() => setTab('revision')}>Ver borradores</button>
+        </div>
+      )}
+
+      <div className="dash-grid dash-grid-wide mb-3">
+        <div className="kpis kpis-2">
+          <KpiTile icon={CheckCircle2} label="Eventos publicados" value={r.publicados} color="#15803d" />
+          <KpiTile icon={FileClock} label="En revisión o borrador" value={(r.pendientes || 0) + (r.borradores || 0)} color="#b45309" />
+          <KpiTile icon={Eye} label="Vistas · 30 días" value={t.visualizaciones} color={SERIES_COLOR.VISUALIZACION} />
+          <KpiTile icon={MessageCircle} label="Contactos · 30 días" value={(t.clics_whatsapp || 0) + (t.clics_llamada || 0)} color={SERIES_COLOR.CLIC_WHATSAPP} />
+        </div>
+        <section className="card chart-card">
+          <div className="chart-head"><h3>Rendimiento · 30 días</h3><Link to="/organizador/marketing" className="see-all small"><BarChart3 size={15} /> Ver marketing</Link></div>
+          <Funnel steps={[{ label: 'Vieron tus eventos', value: t.visualizaciones || 0 }, { label: 'Los guardaron', value: t.favoritos || 0 }, { label: 'Confirmaron asistencia', value: t.asistencias || 0 }]} />
+        </section>
       </div>
 
       <div className="card">
-        <div className="row between" style={{ padding: '14px 18px 0', flexWrap: 'wrap' }}>
-          <div className="tabs" style={{ marginBottom: 0, borderBottom: 0 }}>
-            <button className={`tab ${tab === 'activos' ? 'active' : ''}`} onClick={() => setTab('activos')}>Activos ({groups.activos.length})</button>
-            <button className={`tab ${tab === 'revision' ? 'active' : ''}`} onClick={() => setTab('revision')}>En revisión y borradores ({groups.revision.length})</button>
-            <button className={`tab ${tab === 'pasados' ? 'active' : ''}`} onClick={() => setTab('pasados')}><Archive size={14} /> Pasados ({groups.pasados.length})</button>
+        <div className="row between" style={{ padding: '10px 18px 0', flexWrap: 'wrap' }}>
+          <div className="tabs" role="tablist" style={{ marginBottom: 0, borderBottom: 0 }}>
+            {[['activos', 'Activos', null], ['revision', 'En revisión y borradores', null], ['pasados', 'Pasados', Archive]].map(([k, label, Icon]) => (
+              <button key={k} role="tab" aria-selected={tab === k} className={`tab ${tab === k ? 'active' : ''}`} onClick={() => setTab(k)}>
+                {Icon && <Icon size={14} />}{label} <span className="tab-count">{groups[k].length}</span>
+              </button>
+            ))}
           </div>
-          <Link to="/organizador/marketing" className="see-all small"><BarChart3 size={15} /> Ver marketing</Link>
         </div>
         {list.length === 0 ? (
           <div style={{ padding: 18 }}><EmptyState icon={CalendarDays} title="No hay eventos en esta sección" action={<Link to="/publicar" className="btn btn-primary">Crear evento</Link>} /></div>
         ) : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Evento</th><th>Fecha</th><th>Estado</th><th>Cupos</th><th>Interacción</th><th style={{ textAlign: 'right' }}>Acciones</th></tr></thead>
+              <thead><tr><th>Evento</th><th>Fecha</th><th>Estado</th><th>Cupos</th><th className="col-opt">Interacción</th><th className="col-actions" style={{ textAlign: 'right' }}>Acciones</th></tr></thead>
               <tbody>
                 {list.map((ev) => {
                   const av = availability(ev);
                   return (
                     <tr key={ev.id}>
-                      <td><div className="row"><img className="thumb" src={imgOf(ev)} alt="" /><div style={{ minWidth: 0 }}><b className="clamp-1" style={{ maxWidth: 260, display: 'block' }}>{ev.nombre}</b><span className="tiny muted">{ev.categoria}</span></div></div></td>
+                      <td><Link to={`/evento/${ev.id}`} className="row"><img className="thumb" src={imgOf(ev)} alt="" /><span style={{ minWidth: 0 }}><b className="clamp-1" style={{ maxWidth: 260, display: 'block' }}>{ev.nombre}</b><span className="tiny muted">{ev.categoria}</span></span></Link></td>
                       <td className="small" style={{ whiteSpace: 'nowrap' }}>{shortDate(ev.fecha)}<br /><span className="muted">{hora12(ev.hora)}</span></td>
                       <td><StatusBadge estado={ev.estado} /></td>
                       <td><span className={`badge badge-${av.tone}`}>{av.label}</span></td>
-                      <td className="small muted" style={{ whiteSpace: 'nowrap' }}>
+                      <td className="small muted col-opt" style={{ whiteSpace: 'nowrap' }}>
                         <span title="Vistas"><Eye size={13} /> {fmt(ev.visualizaciones)}</span> · <span title="Guardados"><Heart size={13} /> {fmt(ev.total_favoritos)}</span> · <span title="Asistirán"><Users size={13} /> {fmt(ev.total_asistencias)}</span> · <span title="Compartidos"><Share2 size={13} /> {fmt(ev.compartidos)}</span>
                       </td>
-                      <td>
-                        <div className="row" style={{ justifyContent: 'flex-end', gap: 4 }}>
-                          <Link className="icon-btn" to={`/evento/${ev.id}`} title="Ver"><Eye size={17} /></Link>
-                          {!['ARCHIVADO', 'FINALIZADO'].includes(ev.estado) && <Link className="icon-btn" to={`/organizador/eventos/${ev.id}/editar`} title="Editar"><Pencil size={17} /></Link>}
-                          {['PUBLICADO', 'AGOTADO'].includes(ev.estado) && <>
-                            <button className="icon-btn" title="Entradas" onClick={() => setModal({ type: 'tickets', ev })}><Ticket size={17} /></button>
-                            <button className="icon-btn" title="Código QR" onClick={() => setModal({ type: 'qr', ev })}><QrCode size={17} /></button>
-                          </>}
+                      <td className="col-actions">
+                        {/* Una acción visible con texto; el resto en el menú "más" */}
+                        <div className="row" style={{ justifyContent: 'flex-end', gap: 6 }}>
+                          {!['ARCHIVADO', 'FINALIZADO'].includes(ev.estado) && <Link className="btn btn-light btn-sm" to={`/organizador/eventos/${ev.id}/editar`} aria-label={`Editar ${ev.nombre}`}><Pencil size={15} /> Editar</Link>}
+                          <RowMenu label={`Más acciones para ${ev.nombre}`} items={[
+                            { label: 'Capacidad y entradas', icon: Ticket, hidden: !['PUBLICADO', 'AGOTADO'].includes(ev.estado), onClick: () => setModal({ type: 'tickets', ev }) },
+                            { label: 'Código QR del evento', icon: QrCode, hidden: !['PUBLICADO', 'AGOTADO'].includes(ev.estado), onClick: () => setModal({ type: 'qr', ev }) },
+                            { label: 'Ver página pública', icon: Eye, to: `/evento/${ev.id}` },
+                          ]} />
                         </div>
                       </td>
                     </tr>

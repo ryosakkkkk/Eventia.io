@@ -13,10 +13,16 @@ export function AppProvider({ children }) {
   const [toasts, setToasts] = useState([]);
   const tid = useRef(0);
 
-  const toast = useCallback((message, type = 'success') => {
+  const dismiss = useCallback((id) => {
+    setToasts((t) => t.map((x) => (x.id === id ? { ...x, leaving: true } : x)));
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 180);
+  }, []);
+
+  // toast(mensaje, tipo, { action: { label, onClick }, duration })
+  const toast = useCallback((message, type = 'success', opts = {}) => {
     const id = ++tid.current;
-    setToasts((t) => [...t, { id, message, type }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
+    const duration = opts.duration ?? (opts.action ? 6000 : 4200);
+    setToasts((t) => [...t.slice(-2), { id, message, type, action: opts.action, duration }]);
   }, []);
 
   const refreshUser = useCallback(async () => {
@@ -67,10 +73,16 @@ export function AppProvider({ children }) {
       {children}
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast toast-${t.type}`}>
+          <div key={t.id} className={`toast toast-${t.type} ${t.leaving ? 'leaving' : ''}`}>
             {t.type === 'error' ? <AlertCircle size={18} /> : t.type === 'info' ? <Info size={18} /> : <CheckCircle2 size={18} />}
             <span>{t.message}</span>
-            <button aria-label="Cerrar" onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))}><X size={16} /></button>
+            {t.action && (
+              <button className="toast-action" onClick={() => { t.action.onClick(); dismiss(t.id); }}>{t.action.label}</button>
+            )}
+            <button className="toast-close" aria-label="Cerrar" onClick={() => dismiss(t.id)}><X size={16} /></button>
+            {/* La barra marca el tiempo restante; al pasar el cursor se pausa y el aviso no se cierra */}
+            <i className="toast-progress" style={{ '--toast-dur': `${t.duration}ms` }}
+              onAnimationEnd={() => dismiss(t.id)} aria-hidden="true" />
           </div>
         ))}
       </div>

@@ -41,12 +41,12 @@ export default function AdminCategories() {
             {cats.map((c) => {
               const { Icon, color } = catStyle(c.nombre);
               return (
-                <tr key={c.id_categoria} style={{ opacity: c.estado ? 1 : 0.6 }}>
-                  <td><span className="row"><span className="cat-circle" style={{ width: 42, height: 42, color, background: `${color}14` }}><Icon size={17} /></span><b>{c.nombre}</b></span></td>
+                <tr key={c.id_categoria} className={c.estado ? '' : 'row-off'}>
+                  <td><span className="row"><span className="cat-circle" style={{ width: 40, height: 40, color, background: `${color}14` }}><Icon size={17} /></span><b>{c.nombre}</b>{!c.estado && <span className="badge badge-gray">Inactiva</span>}</span></td>
                   <td className="small muted">{c.descripcion}</td>
                   <td>{c.eventos}</td>
-                  <td><span className="switch"><input type="checkbox" checked={c.estado} onChange={() => toggle(c)} aria-label={`Activar ${c.nombre}`} /><span /></span></td>
-                  <td><button className="icon-btn" onClick={() => { setErr(''); setEdit({ ...c }); }} aria-label="Editar"><Pencil size={17} /></button></td>
+                  <td><span className="switch"><input type="checkbox" checked={c.estado} onChange={() => toggle(c)} aria-label={`Categoría ${c.nombre} activa`} /><span /></span></td>
+                  <td><button className="icon-btn" onClick={() => { setErr(''); setEdit({ ...c }); }} aria-label={`Editar ${c.nombre}`} title="Editar"><Pencil size={17} /></button></td>
                 </tr>
               );
             })}
