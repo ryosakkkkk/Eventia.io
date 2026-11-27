@@ -17,7 +17,7 @@ const config = CLOUD
       password: process.env.DB_PASSWORD,
       options: { encrypt: process.env.DB_ENCRYPT !== 'false', trustServerCertificate: process.env.DB_TRUST_CERT === 'true' },
       pool: { max: 5, min: 0, idleTimeoutMillis: 30000 },
-      connectionTimeout: 30000,
+      connectionTimeout: 15000,
       requestTimeout: 30000,
     }
   : {
@@ -25,10 +25,27 @@ const config = CLOUD
       pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
     };
 
+// Azure SQL sin servidor (oferta gratuita) se pausa tras un rato sin uso. Al despertar responde
+// "not currently available" (error 40613) durante unos segundos: se reintenta en vez de fallar la visita.
+const RESUMING = /40613|not currently available|is paused|resum/i;
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function connect() {
+  const tries = CLOUD ? 5 : 1;
+  for (let i = 1; ; i++) {
+    try {
+      return await new sql.ConnectionPool(config).connect();
+    } catch (err) {
+      const text = `${err.code || ''} ${err.number || ''} ${err.message || ''} ${err.originalError?.message || ''}`;
+      if (i >= tries || !RESUMING.test(text)) throw err;
+      await wait(4000);
+    }
+  }
+}
+
 let poolPromise = null;
 function getPool() {
   if (!poolPromise) {
-    poolPromise = new sql.ConnectionPool(config).connect().catch((err) => {
+    poolPromise = connect().catch((err) => {
       poolPromise = null;
       throw err;
     });
