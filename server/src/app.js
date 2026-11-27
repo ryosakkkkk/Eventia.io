@@ -23,14 +23,18 @@ app.use(
       directives: {
         defaultSrc: ["'self'"],
         imgSrc: ["'self'", 'data:', 'blob:', 'https://*.tile.openstreetmap.org', 'https://*.public.blob.vercel-storage.com'],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        scriptSrc: ["'self'"],
-        connectSrc: ["'self'"],
+        // accounts.google.com/gsi: botón "Continuar con Google" (script, estilos, ventana y verificación)
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://accounts.google.com/gsi/style'],
+        scriptSrc: ["'self'", 'https://accounts.google.com/gsi/client'],
+        connectSrc: ["'self'", 'https://accounts.google.com/gsi/'],
         fontSrc: ["'self'", 'data:'],
-        frameSrc: ["'none'"],
+        frameSrc: ['https://accounts.google.com/gsi/'],
       },
     },
     crossOriginEmbedderPolicy: false,
+    // La ventana emergente de Google necesita comunicarse con la página y conocer su origen
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
   })
 );
 app.use(express.json({ limit: '1mb' }));

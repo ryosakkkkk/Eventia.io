@@ -45,6 +45,17 @@ Para usar fotos propias, reemplaza el archivo `.jpg` con el mismo nombre o sube 
 Si `SMTP_HOST` está vacío (modo desarrollo), los códigos de verificación se muestran en pantalla y en la consola del servidor.
 Para enviar correos reales, completa `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` y `SMTP_FROM` en `server/.env`.
 
+### Inicio de sesión con Google
+El botón «Continuar con Google» aparece en `/ingresar` y `/registro` cuando existe `GOOGLE_CLIENT_ID`. Es gratis:
+1. En [Google Cloud Console](https://console.cloud.google.com) crea un proyecto y, en *Google Auth Platform*, configura
+   la marca (nombre, correo de soporte, enlaces a `/privacidad` y `/condiciones`) con público **Externo**.
+2. En *Clientes* crea un **ID de cliente OAuth** de tipo *Aplicación web* con estos orígenes de JavaScript autorizados:
+   tu dominio de Vercel y `http://localhost:4000`. No hace falta URI de redirección ni el secreto del cliente.
+3. Publica la app (*Público → Publicar app*) y copia el ID de cliente en `GOOGLE_CLIENT_ID`.
+
+El servidor valida el token de Google (`/api/auth/google`): si el correo ya tiene cuenta, entra a ella; si no, crea
+una cuenta verificada con el nombre y el correo de Google. Solo se piden esos dos datos.
+
 ## Diseño UX/UI (investigación de competencia)
 Se analizaron Ticketmaster, Joinnus, Eventbrite, Fever, Teleticket, AllEvents, Luma y Meetup. Patrones adoptados:
 
@@ -139,6 +150,7 @@ con el mismo esquema (recomendado: **Azure SQL Database**, que tiene una oferta 
    | `PUBLIC_URL` | `https://tu-proyecto.vercel.app` (para enlaces y códigos QR) |
    | `CRON_SECRET` | Texto aleatorio (protege `/api/cron`, la tarea diaria de archivo y recordatorios) |
    | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Correo real para los códigos de verificación. Gratis con Gmail: `smtp.gmail.com`, puerto `587`, tu Gmail personal y una *contraseña de aplicación* de 16 letras (requiere verificación en dos pasos; en cuentas universitarias suele estar bloqueada) |
+   | `GOOGLE_CLIENT_ID` | Opcional: ID de cliente web de Google para «Continuar con Google» (es público; ver arriba) |
    | `DEMO_MODE` | `true` solo si no tienes SMTP y quieres mostrar los códigos en pantalla (presentaciones) |
 5. **Imágenes subidas:** en *Storage → Create → Blob* crea un almacén **público** y conéctalo al proyecto marcando
    *Add a read-write token env var* (agrega `BLOB_READ_WRITE_TOKEN`). Sin él, los eventos se ven pero no se pueden

@@ -1577,3 +1577,15 @@ a.attention:hover { box-shadow: var(--shadow); }
   .lead .cat-card-text b { font-size: 24px; }
   .lead .cat-card-text span { font-size: 13.5px; }
 }
+
+/* Acceso con Google: botón oficial y separador "o con tu correo" */
+.google-btn { display: flex; justify-content: center; min-height: 44px; }
+.auth-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13.5px; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+/* Privacidad y condiciones: lectura cómoda */
+.legal { max-width: 760px; }
+.legal-section { margin-top: 22px; }
+.legal-section h2 { font-size: 20px; margin-bottom: 8px; }
+.legal-section ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--text-2); line-height: 1.6; }
+.auth-form .check a { display: inline; }

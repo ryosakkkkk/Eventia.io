@@ -35,6 +35,58 @@ function PasswordInput({ value, onChange, id, autoComplete }) {
   );
 }
 
+// Script oficial de Google Identity Services, cargado una sola vez y solo en estas pantallas
+let gsiPromise = null;
+function loadGoogleScript() {
+  if (window.google?.accounts?.id) return Promise.resolve();
+  if (!gsiPromise) {
+    gsiPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = () => { gsiPromise = null; reject(new Error('No se pudo cargar Google')); };
+      document.head.appendChild(s);
+    });
+  }
+  return gsiPromise;
+}
+
+// Botón oficial "Continuar con Google". Si el servidor no tiene Client ID configurado, no se muestra.
+function GoogleButton({ onCredential, text }) {
+  const box = useRef(null);
+  const handler = useRef(onCredential);
+  handler.current = onCredential;
+  const [clientId, setClientId] = useState(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => { api.get('/auth/google/config').then((r) => setClientId(r.clientId)).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!clientId) return undefined;
+    let alive = true;
+    loadGoogleScript().then(() => {
+      if (!alive || !box.current) return;
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (resp) => handler.current(resp.credential),
+        ux_mode: 'popup',
+        context: text === 'signup_with' ? 'signup' : 'signin',
+      });
+      const width = Math.round(Math.min(400, Math.max(220, box.current.offsetWidth || 320)));
+      window.google.accounts.id.renderButton(box.current, {
+        type: 'standard', theme: 'outline', size: 'large', shape: 'pill', text, logo_alignment: 'center', width, locale: 'es',
+      });
+    }).catch(() => alive && setFailed(true));
+    return () => { alive = false; };
+  }, [clientId, text]);
+  if (!clientId || failed) return null;
+  return (
+    <>
+      <div ref={box} className="google-btn" />
+      <div className="auth-divider" role="separator"><span>o con tu correo</span></div>
+    </>
+  );
+}
+
 function strength(p) {
   let s = 0;
   if (p.length >= 8) s++;
@@ -109,6 +161,20 @@ export default function Auth({ mode }) {
     } finally { setBusy(false); }
   };
 
+  // Respuesta del botón de Google: el servidor valida el token y entra o crea la cuenta
+  const withGoogle = async (credential) => {
+    setError(''); setBusy(true);
+    try {
+      const r = await api.post('/auth/google', { credential });
+      setUser(r.user);
+      const first = r.user.nombre.split(' ')[0];
+      toast(r.nuevo ? `¡Bienvenido a Eventia, ${first}!` : `¡Hola, ${first}!`);
+      navigate(r.nuevo && next === '/' ? '/cuenta/intereses' : next, { replace: true });
+    } catch (err) {
+      setError(err.message);
+    } finally { setBusy(false); }
+  };
+
   const resend = async () => {
     try {
       const r = await api.post('/auth/resend', { correo: form.correo });
@@ -135,6 +201,8 @@ export default function Auth({ mode }) {
           )}
           {error && <div className="form-error" role="alert">{error}</div>}
 
+          {mode !== 'verify' && <GoogleButton onCredential={withGoogle} text={mode === 'register' ? 'signup_with' : 'continue_with'} />}
+
           {mode === 'register' && (
             <label className="field"><span>Nombre completo</span>
               <div className="input-icon"><User size={17} /><input className="input" value={form.nombre} onChange={up('nombre')} autoComplete="name" required minLength={3} /></div>
@@ -159,7 +227,7 @@ export default function Auth({ mode }) {
               <label className="field"><span>Confirmar contraseña</span>
                 <PasswordInput id="pw2" value={form.confirmar} onChange={up('confirmar')} autoComplete="new-password" />
               </label>
-              <label className="check small"><input type="checkbox" checked={form.acepto} onChange={up('acepto')} /> Acepto las condiciones de uso y la política de privacidad de Eventia.</label>
+              <label className="check small"><input type="checkbox" checked={form.acepto} onChange={up('acepto')} /> <span>Acepto las <Link className="link" to="/condiciones" target="_blank">condiciones de uso</Link> y la <Link className="link" to="/privacidad" target="_blank">política de privacidad</Link> de Eventia.</span></label>
             </>
           )}
           {mode === 'verify' && (

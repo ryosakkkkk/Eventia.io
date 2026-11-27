@@ -12,6 +12,7 @@ const Archive = lazy(() => import('./pages/Archive'));
 const Auth = lazy(() => import('./pages/Auth'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const Credits = lazy(() => import('./pages/Credits'));
+const Legal = lazy(() => import('./pages/Legal'));
 const Favorites = lazy(() => import('./pages/account/Favorites'));
 const Attendances = lazy(() => import('./pages/account/Attendances'));
 const Interests = lazy(() => import('./pages/account/Interests'));
@@ -50,6 +51,8 @@ export default function App() {
               <Route path="/calendario" element={<CalendarPage />} />
               <Route path="/archivo" element={<Archive />} />
               <Route path="/creditos" element={<Credits />} />
+              <Route path="/privacidad" element={<Legal doc="privacidad" />} />
+              <Route path="/condiciones" element={<Legal doc="condiciones" />} />
               <Route path="*" element={<NotFound />} />
             </Route>
             <Route element={<BareLayout />}>

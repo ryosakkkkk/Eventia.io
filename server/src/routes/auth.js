@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const rateLimit = require('express-rate-limit');
@@ -91,6 +92,63 @@ router.post('/login', limiter, async (req, res) => {
   }
   setAuthCookie(res, u);
   res.json({ ok: true, user: publicUser(u) });
+});
+
+/* ---------- Inicio de sesión con Google (Google Identity Services) ----------
+ * El botón de Google entrega al navegador un "ID token" firmado por Google. Aquí se valida con Google
+ * (firma y vigencia), se comprueba que fue emitido para Eventia (aud) y que el correo está verificado.
+ * Si el correo ya tiene cuenta, se entra; si no, se crea verificada. El Client ID es público (no es un secreto). */
+router.get('/google/config', (_req, res) => {
+  res.json({ clientId: process.env.GOOGLE_CLIENT_ID || null });
+});
+
+router.post('/google', limiter, async (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  if (!clientId) throw bad('El inicio de sesión con Google no está configurado.');
+  const credential = String(req.body.credential || '');
+  if (!credential || credential.length > 4096) throw bad('No recibimos la respuesta de Google. Inténtalo de nuevo.');
+
+  const r = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+  if (!r.ok) throw new HttpError(401, 'No se pudo validar tu cuenta de Google. Inténtalo de nuevo.');
+  const t = await r.json();
+  const emisorOk = t.iss === 'accounts.google.com' || t.iss === 'https://accounts.google.com';
+  if (t.aud !== clientId || !emisorOk || Number(t.exp) * 1000 < Date.now())
+    throw new HttpError(401, 'La sesión de Google no es válida para Eventia. Inténtalo de nuevo.');
+  if (String(t.email_verified) !== 'true') throw new HttpError(401, 'Tu correo de Google aún no está verificado.');
+  const correo = String(t.email || '').toLowerCase();
+  if (!isEmail(correo)) throw bad('Tu cuenta de Google no tiene un correo válido.');
+
+  const buscar = (where, p) => one(
+    `SELECT u.*, o.id_organizador FROM usuarios u LEFT JOIN organizadores o ON o.id_usuario = u.id_usuario WHERE ${where}`, p);
+  let u = await buscar('u.correo = @correo', { correo });
+  let nuevo = false;
+  if (u) {
+    if (!u.estado) throw new HttpError(403, 'Tu cuenta está deshabilitada. Contacta al administrador.');
+    if (!u.correo_verificado) {
+      // Google ya verificó este correo: la cuenta pendiente queda verificada
+      await query(`UPDATE usuarios SET correo_verificado = 1, codigo_verificacion = NULL WHERE id_usuario = @id`, { id: u.id_usuario });
+      u.correo_verificado = true;
+    }
+  } else {
+    nuevo = true;
+    const nombre = str(t.name, 150) || correo.split('@')[0];
+    // La columna exige una contraseña: se guarda el hash de una clave aleatoria que nadie conoce (se entra con Google)
+    const hash = await bcrypt.hash(crypto.randomBytes(32).toString('base64url'), 10);
+    const ins = await one(
+      `INSERT INTO usuarios (nombre, correo, contrasena, rol, correo_verificado) OUTPUT INSERTED.id_usuario
+       VALUES (@nombre, @correo, @hash, 'USUARIO', 1)`,
+      { nombre, correo, hash }
+    );
+    await query(
+      `INSERT INTO notificaciones (enviado, fecha_envio, mensaje, tipo, id_usuario)
+       VALUES (1, SYSUTCDATETIME(), N'¡Bienvenido a Eventia! Elige tus intereses para recibir recomendaciones “Para ti”.', 'SISTEMA', @id)`,
+      { id: ins.id_usuario }
+    );
+    await audit(ins.id_usuario, 'REGISTRO_GOOGLE', 'usuarios', ins.id_usuario, null);
+    u = await buscar('u.id_usuario = @id', { id: ins.id_usuario });
+  }
+  setAuthCookie(res, u);
+  res.json({ ok: true, nuevo, user: publicUser(u) });
 });
 
 router.post('/logout', (req, res) => {

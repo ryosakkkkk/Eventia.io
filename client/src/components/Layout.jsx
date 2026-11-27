@@ -154,7 +154,7 @@ export function Footer() {
         </div>
         <div className="footer-bottom">
           <span>© {new Date().getFullYear()} Eventia · Abancay, Apurímac – Perú</span>
-          <span>Mapas © colaboradores de OpenStreetMap · <Link to="/creditos" style={{ display: 'inline', textDecoration: 'underline' }}>Créditos de fotografías</Link></span>
+          <span>Mapas © colaboradores de OpenStreetMap · <Link to="/creditos" style={{ display: 'inline', textDecoration: 'underline' }}>Créditos de fotografías</Link> · <Link to="/privacidad" style={{ display: 'inline', textDecoration: 'underline' }}>Privacidad</Link> · <Link to="/condiciones" style={{ display: 'inline', textDecoration: 'underline' }}>Condiciones</Link></span>
         </div>
       </div>
     </footer>
