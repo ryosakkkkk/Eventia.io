@@ -138,7 +138,7 @@ con el mismo esquema (recomendado: **Azure SQL Database**, que tiene una oferta 
    | `DB_SERVER`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Datos de Azure SQL (p. ej. `mi-servidor.database.windows.net`) |
    | `PUBLIC_URL` | `https://tu-proyecto.vercel.app` (para enlaces y códigos QR) |
    | `CRON_SECRET` | Texto aleatorio (protege `/api/cron`, la tarea diaria de archivo y recordatorios) |
-   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Correo real para los códigos de verificación |
+   | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Correo real para los códigos de verificación. Gratis con Gmail: `smtp.gmail.com`, puerto `587`, tu Gmail personal y una *contraseña de aplicación* de 16 letras (requiere verificación en dos pasos; en cuentas universitarias suele estar bloqueada) |
    | `DEMO_MODE` | `true` solo si no tienes SMTP y quieres mostrar los códigos en pantalla (presentaciones) |
 5. **Imágenes subidas:** en *Storage → Create → Blob* crea un almacén **público** y conéctalo al proyecto marcando
    *Add a read-write token env var* (agrega `BLOB_READ_WRITE_TOKEN`). Sin él, los eventos se ven pero no se pueden
