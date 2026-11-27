@@ -108,17 +108,29 @@ Vercel ejecuta la API como una función serverless (`api/index.js`) y sirve la i
 desde su CDN. Como Vercel **no puede conectarse al SQL Server de tu computadora**, necesitas un SQL Server en la nube
 con el mismo esquema (recomendado: **Azure SQL Database**, que tiene una oferta gratuita).
 
-1. **Base de datos en la nube (Azure SQL):** crea un servidor y una base llamada `EventiaDB` con usuario y contraseña SQL.
+**Sitio publicado:** https://eventia-abancay.vercel.app (Vercel Hobby + Azure SQL gratuito + Vercel Blob).
+
+1. **Base de datos en la nube (Azure SQL, gratis):** crea un servidor y una base llamada `EventiaDB` con usuario y
+   contraseña SQL, usando la **oferta gratuita** (100 000 s de vCore y 32 GB al mes) con pausa automática al agotarla,
+   para que nunca haya cobros. Con Azure CLI:
+   ```bash
+   az sql db create -g <grupo> -s <servidor> -n EventiaDB --edition GeneralPurpose --compute-model Serverless \
+     --family Gen5 --capacity 2 --use-free-limit true --free-limit-exhaustion-behavior AutoPause
+   ```
+   Con **Azure for Students** solo se permiten algunas regiones (consulta la directiva *Allowed resource deployment
+   regions*) y no todas admiten la base gratuita: en este proyecto funcionó **Canada East**.
    En *Networking* agrega tu IP y permite el acceso desde Vercel (Vercel no tiene IP fija: se suele abrir
-   `0.0.0.0 – 255.255.255.255`; usa una contraseña larga y robusta).
+   `0.0.0.0 – 255.255.255.255`; usa una contraseña larga y robusta). La base gratuita se pausa tras 1 hora sin uso;
+   la API reintenta la conexión mientras se reanuda, así que la primera visita después de una pausa tarda unos segundos.
 2. **Crear tablas y datos (desde tu PC):** en `server/.env` completa `DB_SERVER`, `DB_NAME`, `DB_USER` y `DB_PASSWORD`
    (al tener `DB_SERVER`, la app usa la nube en vez del SQL Server local) y ejecuta:
    ```bash
    cd server && npm run db:init && npm run seed
    ```
    Luego borra o comenta esas variables para volver a trabajar en local.
-3. **Proyecto en Vercel:** *Add New → Project → Import* el repositorio de GitHub. No cambies el directorio raíz ni el
-   framework: `vercel.json` ya define instalación, compilación, rutas, cabeceras de seguridad y la tarea diaria.
+3. **Proyecto en Vercel:** *Add New → Project → Import* el repositorio de GitHub. Deja el directorio raíz en `./` y
+   elige el preset **Other** (si Vercel sugiere *Services*, cámbialo): `vercel.json` ya define instalación,
+   compilación, rutas, cabeceras de seguridad y la tarea diaria.
 4. **Variables de entorno** (*Settings → Environment Variables*):
    | Variable | Valor |
    |---|---|
@@ -128,8 +140,9 @@ con el mismo esquema (recomendado: **Azure SQL Database**, que tiene una oferta 
    | `CRON_SECRET` | Texto aleatorio (protege `/api/cron`, la tarea diaria de archivo y recordatorios) |
    | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Correo real para los códigos de verificación |
    | `DEMO_MODE` | `true` solo si no tienes SMTP y quieres mostrar los códigos en pantalla (presentaciones) |
-5. **Imágenes subidas:** en *Storage → Create → Blob* crea un almacén y conéctalo al proyecto (agrega
-   `BLOB_READ_WRITE_TOKEN`). Sin él, los eventos se ven pero no se pueden subir afiches nuevos.
+5. **Imágenes subidas:** en *Storage → Create → Blob* crea un almacén **público** y conéctalo al proyecto marcando
+   *Add a read-write token env var* (agrega `BLOB_READ_WRITE_TOKEN`). Sin él, los eventos se ven pero no se pueden
+   subir afiches nuevos.
 6. Haz *Redeploy*. La rama `main` queda en producción y `develop` en vista previa.
 
 > En Vercel el archivo automático de eventos pasados se ejecuta al recibir visitas (como máximo cada 15 min) y la
