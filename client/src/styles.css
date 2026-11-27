@@ -1282,25 +1282,6 @@ a.attention:hover { box-shadow: var(--shadow); }
 .ev-badges .badge-dark { background: rgba(11, 17, 32, .6); }
 .fav-btn { background: rgba(255, 255, 255, .82); -webkit-backdrop-filter: blur(10px) saturate(1.6); backdrop-filter: blur(10px) saturate(1.6); border: 1px solid rgba(255, 255, 255, .6); }
 
-/* ---- Íconos de categoría: azulejo duotono con brillo y rebote ---- */
-.cat-tile {
-  width: 80px; height: 80px; border-radius: 26px; display: grid; place-items: center; color: var(--c);
-  background:
-    radial-gradient(120% 90% at 30% 15%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 55%),
-    linear-gradient(150deg, color-mix(in srgb, var(--c) 22%, #fff), color-mix(in srgb, var(--c) 8%, #fff));
-  border: 1px solid color-mix(in srgb, var(--c) 22%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 6px 14px color-mix(in srgb, var(--c) 14%, transparent);
-  transition: transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease-out);
-}
-.cat-tile svg { transition: transform 420ms var(--ease-spring); filter: drop-shadow(0 2px 2px color-mix(in srgb, var(--c) 25%, transparent)); }
-@media (hover: hover) {
-  .cat-item:hover .cat-tile { transform: translateY(-5px); box-shadow: inset 0 1px 0 #fff, 0 16px 28px color-mix(in srgb, var(--c) 26%, transparent); }
-  .cat-item:hover .cat-tile svg { transform: rotate(-10deg) scale(1.12); }
-}
-.cat-item:active .cat-tile { transform: scale(.94); }
-.cat-item:focus-visible { outline: none; }
-.cat-item:focus-visible .cat-tile { box-shadow: var(--ring); }
-
 /* ---- Rieles: arrastre con el mouse y desvanecido en los bordes ---- */
 .rail { cursor: grab; --fl: 0px; --fr: 0px; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%); }
 .rail.fade-l { --fl: 56px; }
@@ -1332,8 +1313,6 @@ a.attention:hover { box-shadow: var(--shadow); }
 @media (max-width: 760px) {
   .hero2 { padding-top: calc(var(--header-h) + 22px); }
   .segments { left: 16px; right: 70px; top: 14px; }
-  .cat-tile { width: 66px; height: 66px; border-radius: 22px; }
-  .cat-tile svg { width: 26px; height: 26px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1549,4 +1528,52 @@ a.attention:hover { box-shadow: var(--shadow); }
 @media (max-width: 760px) {
   .wizard-actions { margin: 6px -20px -20px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); }
   .wizard-actions > div { flex: 1; justify-content: flex-end; }
+}
+
+/* ===================== Explora por categoría: fotos reales, no íconos ===================== */
+/* La categoría con más eventos ocupa 2×2; las demás comparten tamaño. Sin colores por categoría:
+   la foto de su próximo evento es lo que las distingue. */
+.cat-grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); grid-auto-rows: 168px; grid-auto-flow: dense; gap: 12px;
+}
+.cat-grid > .lead { grid-column: span 2; grid-row: span 2; }
+.cat-grid > li:last-child:not(.lead) { grid-column: span var(--span-6, 1); }
+.cat-card {
+  position: relative; display: block; height: 100%; overflow: hidden; isolation: isolate;
+  border-radius: 14px; background: var(--ink-800, #1e293b); color: #fff;
+}
+.cat-card img { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover; transition: filter var(--dur-2) var(--ease-out); }
+.cat-card::after {
+  content: ''; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(180deg, rgba(8, 12, 22, 0) 38%, rgba(8, 12, 22, .8) 100%);
+}
+.cat-card-text { position: absolute; left: 14px; right: 14px; bottom: 12px; display: flex; flex-direction: column; gap: 2px; }
+.cat-card-text b { font-family: var(--font-display); font-size: 19px; font-weight: 650; line-height: 1.15; letter-spacing: -0.015em; }
+.cat-card-text span { font-size: 13.5px; font-weight: 500; color: rgba(255, 255, 255, .84); }
+.lead .cat-card-text { left: 22px; right: 22px; bottom: 20px; gap: 4px; }
+.lead .cat-card-text b { font-size: clamp(26px, 2.4vw, 34px); letter-spacing: -0.025em; }
+.lead .cat-card-text span { font-size: 15px; }
+@media (hover: hover) { .cat-card:hover img { filter: brightness(1.1) saturate(1.06); } }
+.cat-card:focus-visible { outline: 3px solid var(--brand); outline-offset: 3px; }
+.cat-empty { margin: 14px 0 0; color: var(--muted); font-size: 14.5px; }
+.cat-empty a { color: var(--primary); font-weight: 700; }
+.cat-empty a:hover { text-decoration: underline; }
+
+@media (max-width: 1080px) {
+  .cat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 150px; }
+  .cat-grid > li:last-child:not(.lead) { grid-column: span var(--span-4, 1); }
+}
+@media (max-width: 760px) {
+  /* En móvil: una fila deslizable; la categoría principal un poco más ancha */
+  .cat-grid {
+    display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+    margin: 0 calc(var(--gutter) * -1); padding: 0 var(--gutter) 4px; scroll-padding-inline: var(--gutter);
+  }
+  .cat-grid::-webkit-scrollbar { display: none; }
+  .cat-grid > li { flex: 0 0 40%; aspect-ratio: 3 / 4; scroll-snap-align: start; }
+  .cat-grid > .lead { flex-basis: 62%; }
+  .lead .cat-card-text { left: 14px; right: 14px; bottom: 12px; }
+  .lead .cat-card-text b { font-size: 24px; }
+  .lead .cat-card-text span { font-size: 13.5px; }
 }

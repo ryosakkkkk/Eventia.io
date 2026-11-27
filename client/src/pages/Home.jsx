@@ -220,6 +220,51 @@ function DiscoverTabs() {
   );
 }
 
+// "Arte y Otros" / "Arte, Cine y Otros"
+const joinNames = (names) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`);
+
+// Categorías con la foto real de su próximo evento (no íconos): la que tiene más eventos va en grande.
+// Las categorías sin eventos no se muestran como "0 eventos"; se mencionan al final como invitación a publicar.
+function CategoryBrowser({ categorias }) {
+  const activas = [...categorias].filter((c) => c.proximos > 0).sort((a, b) => b.proximos - a.proximos);
+  const vacias = categorias.filter((c) => !c.proximos).map((c) => shortCat(c.nombre));
+  if (!activas.length) return null;
+  // La última tarjeta se estira para cerrar su fila (6 columnas en escritorio, 4 en tablet): sin huecos en la cuadrícula
+  const small = activas.length - 1;
+  const fill = (cols, beside) => {
+    const rem = small <= beside * 2 ? small % beside : (small - beside * 2) % cols;
+    const width = small <= beside * 2 ? beside : cols;
+    return 1 + (rem ? width - rem : 0);
+  };
+  const lastSpan = { '--span-6': fill(6, 4), '--span-4': fill(4, 2) };
+  return (
+    <section className="section container">
+      <div className="section-head">
+        <div><h2>Explora por categoría</h2><p>Lo que viene en Abancay, ordenado por tema.</p></div>
+        <Link to="/explorar" className="see-all">Todo el catálogo <ArrowRight size={17} /></Link>
+      </div>
+      <ul className="cat-grid">
+        {activas.map((c, i) => (
+          <li key={c.id_categoria} className={i === 0 ? 'lead' : undefined} style={i > 0 && i === activas.length - 1 ? lastSpan : undefined}>
+            <Link to={`/explorar?categoria=${c.id_categoria}`} className="cat-card">
+              {c.imagen && <img src={c.imagen} alt="" loading="lazy" decoding="async" draggable="false" />}
+              <span className="cat-card-text">
+                <b>{shortCat(c.nombre)}</b>
+                <span>{c.proximos} {c.proximos === 1 ? 'evento próximo' : 'eventos próximos'}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {vacias.length > 0 && (
+        <p className="cat-empty">
+          Todavía no hay eventos de {joinNames(vacias)}. ¿Organizas uno? <Link to="/publicar">Publícalo gratis</Link>
+        </p>
+      )}
+    </section>
+  );
+}
+
 // "No te lo pierdas": próximo evento guardado o con asistencia confirmada
 function DontMiss() {
   const { user } = useApp();
@@ -296,22 +341,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="section container">
-        <div className="section-head"><div><h2>Explora por categoría</h2><p>Encuentra algo que vaya contigo</p></div>
-          <Link to="/explorar" className="see-all">Todo el catálogo <ArrowRight size={17} /></Link></div>
-        <Reveal className="cat-row">
-          {categorias.map((c) => {
-            const { Icon, color } = catStyle(c.nombre);
-            return (
-              <Link key={c.id_categoria} to={`/explorar?categoria=${c.id_categoria}`} className="cat-item" style={{ '--c': color }}>
-                <span className="cat-tile"><Icon size={30} strokeWidth={1.75} /></span>
-                {shortCat(c.nombre)}
-                <small>{c.proximos} {c.proximos === 1 ? 'evento' : 'eventos'}</small>
-              </Link>
-            );
-          })}
-        </Reveal>
-      </section>
+      <CategoryBrowser categorias={categorias} />
 
       <DontMiss />
       <DiscoverTabs />

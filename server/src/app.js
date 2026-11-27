@@ -73,12 +73,17 @@ app.get('/api/cron', async (req, res) => {
   res.json({ ok: true, ...(await jobs.runAll()) });
 });
 
-// RF20 – Categorías activas (con número de eventos próximos)
+// RF20 – Categorías activas (con número de eventos próximos y la foto de su próximo evento, para la portada)
 app.get('/api/categories', async (_req, res) => {
   const rows = await query(
     `SELECT c.id_categoria, c.nombre, c.descripcion,
             (SELECT COUNT(*) FROM eventos e WHERE e.id_categoria = c.id_categoria AND e.estado IN ('PUBLICADO','AGOTADO')
-                AND e.visibilidad = 1 AND e.fecha >= ${HOY}) AS proximos
+                AND e.visibilidad = 1 AND e.fecha >= ${HOY}) AS proximos,
+            (SELECT TOP 1 e.imagen FROM eventos e WHERE e.id_categoria = c.id_categoria AND e.estado IN ('PUBLICADO','AGOTADO','ARCHIVADO')
+                AND e.visibilidad = 1 AND e.imagen IS NOT NULL AND e.imagen <> ''
+              -- Primero un evento próximo (destacado o el más cercano); si ninguno tiene foto, el pasado más reciente
+              ORDER BY CASE WHEN e.fecha >= ${HOY} THEN 0 ELSE 1 END, e.destacado DESC,
+                       ABS(DATEDIFF(DAY, ${HOY}, e.fecha))) AS imagen
        FROM categorias c WHERE c.estado = 1 ORDER BY c.id_categoria`
   );
   res.json({ categorias: rows });
