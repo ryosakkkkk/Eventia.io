@@ -7,6 +7,7 @@
     "api/index.js": { "maxDuration": 30 }
   },
   "rewrites": [
+    { "source": "/sitemap.xml", "destination": "/api" },
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/uploads/eventos/(.*)", "destination": "/api" },
     { "source": "/((?!api/|uploads/|assets/).*)", "destination": "/index.html" }
@@ -18,6 +19,10 @@
     {
       "source": "/assets/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/uploads/demo/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=2592000, stale-while-revalidate=86400" }]
     },
     {
       "source": "/(.*)",

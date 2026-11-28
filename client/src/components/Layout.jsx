@@ -133,20 +133,20 @@ export function Footer() {
             <p className="mt-2" style={{ maxWidth: 330 }}>La plataforma para descubrir, guardar y compartir los eventos de Abancay y Apurímac. Descubre · Conecta · Vive.</p>
           </div>
           <div>
-            <h4>Descubre</h4>
+            <h2>Descubre</h2>
             <Link to="/explorar">Explorar eventos</Link>
             <Link to="/explorar?cuando=finde">Este fin de semana</Link>
             <Link to="/calendario">Calendario</Link>
             <Link to="/archivo">Eventos pasados</Link>
           </div>
           <div>
-            <h4>Organizadores</h4>
+            <h2>Organizadores</h2>
             <Link to="/publicar">Publicar un evento</Link>
             <Link to="/organizador">Mis publicaciones</Link>
             <Link to="/organizador/marketing">Estadísticas</Link>
           </div>
           <div>
-            <h4>Tu cuenta</h4>
+            <h2>Tu cuenta</h2>
             <Link to="/cuenta/favoritos">Favoritos</Link>
             <Link to="/cuenta/intereses">Para ti</Link>
             <Link to="/cuenta/notificaciones">Notificaciones</Link>

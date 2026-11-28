@@ -14,7 +14,7 @@ export const imgOf = (ev) => ev.imagen || FALLBACK(ev);
 
 // Imagen del evento o, si no tiene, una portada diseñada con el color e ícono de su categoría
 export function EventMedia({ ev, eager }) {
-  if (ev.imagen) return <Img src={ev.imagen} alt="" loading={eager ? 'eager' : 'lazy'} decoding="async" />;
+  if (ev.imagen) return <Img src={ev.imagen} alt="" loading={eager ? 'eager' : 'lazy'} fetchpriority={eager ? 'high' : undefined} decoding="async" />;
   const { Icon, color } = catStyle(ev.categoria);
   return (
     <span className="ev-poster" style={{ '--c': color }} aria-hidden="true">
@@ -90,13 +90,13 @@ function Going({ ev }) {
 }
 
 // Tarjeta a todo el ancho: fecha destacada en una línea (patrón Eventbrite/DICE), sin sello que reste espacio al título
-export function EventCard({ ev, onFav }) {
+export function EventCard({ ev, onFav, eager }) {
   const { Icon, color } = catStyle(ev.categoria);
   const social = ev.total_asistencias > 0 || ev.rating;
   return (
     <Link to={`/evento/${ev.id}`} className="ev-card" style={{ '--c': color }}>
       <div className="ev-media">
-        <EventMedia ev={ev} />
+        <EventMedia ev={ev} eager={eager} />
         <Badges ev={ev} />
         <FavButton ev={ev} onChange={onFav} />
       </div>
@@ -118,12 +118,12 @@ export function EventCard({ ev, onFav }) {
 
 // Fila de lista: el título es el enlace y se estira sobre toda la fila; los botones de la derecha quedan
 // fuera del enlace (un botón dentro de un <a> es HTML inválido y confunde al teclado y lectores de pantalla)
-export function EventRow({ ev, right }) {
+export function EventRow({ ev, right, eager }) {
   const { Icon, color } = catStyle(ev.categoria);
   const av = availability(ev);
   return (
     <div className="ev-row" style={{ '--c': color }}>
-      <div className="ev-media"><EventMedia ev={ev} /></div>
+      <div className="ev-media"><EventMedia ev={ev} eager={eager} /></div>
       <div className="stack" style={{ gap: 5, minWidth: 0 }}>
         <span className="when">{whenLabel(ev)}</span>
         <h3 className="clamp-2"><Link to={`/evento/${ev.id}`} className="stretched">{ev.nombre}</Link></h3>

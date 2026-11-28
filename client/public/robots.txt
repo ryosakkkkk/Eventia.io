@@ -1,0 +1,11 @@
+# Eventia · reglas para buscadores
+User-agent: *
+Allow: /
+# Áreas privadas o de cuenta: no aportan a la búsqueda
+Disallow: /cuenta/
+Disallow: /admin
+Disallow: /organizador
+Disallow: /publicar
+Disallow: /verificar
+
+Sitemap: https://eventia-abancay.vercel.app/sitemap.xml

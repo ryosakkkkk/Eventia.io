@@ -326,8 +326,8 @@ kbd {
   position: absolute; inset: auto 0 0 0; padding: 120px 34px 30px;
   background: linear-gradient(0deg, rgba(5, 12, 28, .96) 8%, rgba(5, 12, 28, .6) 55%, rgba(5, 12, 28, 0));
 }
-.slide-info h3 { font-size: clamp(24px, 2.6vw, 38px); line-height: 1.06; color: #fff; margin: 12px 0 10px; letter-spacing: -0.03em; max-width: 720px; }
-.slide-info h3::after { content: none; }
+.slide-info h2 { font-size: clamp(24px, 2.6vw, 38px); line-height: 1.06; color: #fff; margin: 12px 0 10px; letter-spacing: -0.03em; max-width: 720px; }
+.slide-info h2::after { content: none; }
 .slide-meta { display: flex; flex-wrap: wrap; gap: 18px; color: #dbe2f2; font-size: 15.5px; font-weight: 600; }
 .slide-meta span { display: inline-flex; align-items: center; gap: 7px; }
 .slide-cta { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
@@ -470,7 +470,7 @@ kbd {
 /* ---------------- Footer ---------------- */
 .footer { margin-top: 70px; background: var(--ink); color: #a9b6cf; padding: 54px 0 34px; font-size: 15px; }
 .footer-grid { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; gap: 32px; }
-.footer h4 { color: #fff; font-size: 15px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: .06em; }
+.footer h2 { color: #fff; font-size: 15px; margin-bottom: 14px; text-transform: uppercase; letter-spacing: .06em; }
 .footer a { display: block; padding: 5px 0; }
 .footer a:hover { color: #fff; }
 .footer .logo b { background: none; color: #fff; -webkit-background-clip: initial; }
@@ -531,7 +531,7 @@ kbd {
 .explore-head { padding: 30px 0 22px; }
 .explore-grid { display: grid; grid-template-columns: 264px minmax(0, 1fr); gap: 32px; align-items: start; }
 .filters { position: sticky; top: calc(var(--header-h) + 18px); display: flex; flex-direction: column; gap: 24px; max-height: calc(100vh - var(--header-h) - 36px); overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
-.filters h4 { font-size: 14px; color: var(--text); margin-bottom: 8px; }
+.filters h2 { font-size: 14px; color: var(--text); margin-bottom: 8px; }
 .filter-list { display: flex; flex-direction: column; gap: 2px; }
 .filter-opt { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; font-size: 15px; font-weight: 500; color: var(--text-2); cursor: pointer; text-align: left; width: 100%; }
 .filter-opt:hover { background: #fff; }
@@ -758,8 +758,8 @@ table.table { width: 100%; border-collapse: collapse; font-size: 15px; }
   .slide { display: flex; flex-direction: column; height: auto; background: #0d182c; }
   .slide img { height: auto; aspect-ratio: 16 / 9; }
   .slide-info { position: static; padding: 16px 18px 24px; background: none; flex: 1; }
-  .slide-info h3 { font-size: 25px; margin: 10px 0 8px; }
-  .slide-info h3::after { width: 60px; height: 5px; margin-top: 10px; }
+  .slide-info h2 { font-size: 25px; margin: 10px 0 8px; }
+  .slide-info h2::after { width: 60px; height: 5px; margin-top: 10px; }
   .slide-cta .btn { width: 100%; }
   .slide-meta { font-size: 14.5px; gap: 10px 14px; }
   .slider-ctrl { top: 14px; right: 14px; }
@@ -1253,7 +1253,7 @@ a.attention:hover { box-shadow: var(--shadow); }
 /* Segmentos tipo historias: el activo se llena durante la lámina */
 .dots { display: none; }
 .segments { position: absolute; z-index: 3; top: 18px; left: 22px; right: 150px; display: flex; gap: 6px; }
-.segments button { flex: 1; height: 18px; display: flex; align-items: center; padding: 0; }
+.segments button { flex: 1; height: 24px; display: flex; align-items: center; padding: 0; }
 .segments button i { display: block; width: 100%; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, .3); overflow: hidden; position: relative; }
 .segments button i::after { content: ''; position: absolute; inset: 0; background: #fff; transform-origin: left; transform: scaleX(0); border-radius: inherit; }
 .segments button.done i::after { transform: scaleX(1); }
@@ -1589,3 +1589,6 @@ a.attention:hover { box-shadow: var(--shadow); }
 .legal-section h2 { font-size: 20px; margin-bottom: 8px; }
 .legal-section ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--text-2); line-height: 1.6; }
 .auth-form .check a { display: inline; }
+
+/* Conteo de resultados del catálogo (h2 para que los encabezados sigan un orden) */
+.results-count { font-size: 15px; font-weight: 700; letter-spacing: 0; gap: 8px; }

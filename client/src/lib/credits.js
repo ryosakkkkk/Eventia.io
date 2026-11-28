@@ -14,6 +14,6 @@ export function useCredits() {
 }
 
 export function creditFor(credits, imagen) {
-  const m = /\/uploads\/demo\/fotos\/([\w-]+)\.jpg$/.exec(imagen || '');
+  const m = /\/uploads\/demo\/fotos\/([\w-]+)\.(?:jpg|webp)$/.exec(imagen || '');
   return m ? credits[m[1]] : null;
 }

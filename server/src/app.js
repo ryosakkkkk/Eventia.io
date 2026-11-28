@@ -93,6 +93,20 @@ app.get('/api/categories', async (_req, res) => {
   res.json({ categorias: rows });
 });
 
+// Mapa del sitio para buscadores (Search Console): páginas públicas y eventos publicados
+app.get('/sitemap.xml', async (req, res) => {
+  const base = (process.env.PUBLIC_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+  const fijas = ['/', '/explorar', '/calendario', '/archivo', '/creditos', '/privacidad', '/condiciones'];
+  const eventos = await query(
+    `SELECT id_evento, fecha_creacion FROM eventos
+      WHERE estado IN ('PUBLICADO','AGOTADO') AND visibilidad = 1 ORDER BY fecha DESC`
+  );
+  const url = (loc, lastmod) => `  <url><loc>${base}${loc}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString().slice(0, 10)}</lastmod>` : ''}</url>`;
+  const xml = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...fijas.map((f) => url(f)), ...eventos.map((e) => url(`/evento/${e.id_evento}`, e.fecha_creacion)), '</urlset>'].join('\n');
+  res.set('Cache-Control', 'public, max-age=3600').type('application/xml').send(xml);
+});
+
 app.get('/api/report-reasons', (_req, res) => res.json({ motivos: require('./routes/events').MOTIVOS }));
 app.use('/api/auth', require('./routes/auth').router);
 app.use('/api/events', require('./routes/events').router);

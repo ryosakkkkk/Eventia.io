@@ -66,7 +66,7 @@ function Showcase({ eventos, onActive }) {
             return (
               <Link key={ev.id} to={`/evento/${ev.id}`} className={`slide ${k === i ? 'active' : ''}`} aria-hidden={k !== i} tabIndex={k === i ? 0 : -1}
                 aria-roledescription="lámina" aria-label={`${k + 1} de ${n}: ${ev.nombre}`} draggable="false">
-                <div className="slide-media" style={{ '--c': catStyle(ev.categoria).color }}>{ev.imagen ? <img src={ev.imagen} alt="" loading={k === 0 ? 'eager' : 'lazy'} draggable="false" /> : <EventMedia ev={ev} />}</div>
+                <div className="slide-media" style={{ '--c': catStyle(ev.categoria).color }}>{ev.imagen ? <img src={ev.imagen} alt="" loading={k === 0 ? 'eager' : 'lazy'} fetchpriority={k === 0 ? 'high' : undefined} draggable="false" /> : <EventMedia ev={ev} />}</div>
                 <div className="slide-info">
                   <div className="row-wrap slide-badges" style={{ gap: 8 }}>
                     {ev.destacado && <span className="badge badge-glass-violet"><Sparkles size={13} /> Destacado</span>}
@@ -76,7 +76,7 @@ function Showcase({ eventos, onActive }) {
                     {ev.disponibilidad === 'ULTIMOS' && <span className="badge badge-glass-orange">Últimos cupos</span>}
                     {ev.disponibilidad === 'AGOTADO' && <span className="badge badge-glass">Agotado</span>}
                   </div>
-                  <h3>{ev.nombre}</h3>
+                  <h2>{ev.nombre}</h2>
                   <div className="slide-meta">
                     <span><CalendarDays size={17} /> {longDate(ev.fecha)}</span>
                     <span><Clock size={17} /> {hora12(ev.hora)}</span>

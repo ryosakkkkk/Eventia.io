@@ -86,7 +86,7 @@ function poster(file, title, categoria, sub, seed) {
   fs.writeFileSync(file, svg);
 }
 
-// Evento de ejemplo → foto en uploads/demo/fotos/<slug>.jpg
+// Evento de ejemplo → foto en uploads/demo/fotos/<slug>.webp (original .jpg al lado, ver creditos.json)
 const PHOTO = {
   'Festival de la Canción Andina': 'festival-cancion-andina',
   'Noche de Rock Apurimeño': 'noche-rock',
@@ -236,8 +236,8 @@ async function main() {
     // Foto real con licencia libre (uploads/demo/fotos, ver creditos.json); si no existe, ilustración generada
     const slug = PHOTO[nombre];
     let img;
-    if (slug && fs.existsSync(path.join(demoDir, 'fotos', `${slug}.jpg`))) {
-      img = `/uploads/demo/fotos/${slug}.jpg`;
+    if (slug && fs.existsSync(path.join(demoDir, 'fotos', `${slug}.webp`))) {
+      img = `/uploads/demo/fotos/${slug}.webp`;
       seed++;
     } else {
       const file = `evento-${seed}-${RUN}.svg`;

@@ -80,7 +80,7 @@ function Filters({ params, set, categorias, withOrder }) {
       </form>
       )}
       <div>
-        <h4>Fecha</h4>
+        <h2>Fecha</h2>
         <div className="filter-list">{WHEN.map(([v, l]) => <Opt key={v} k="cuando" v={v} label={l} />)}</div>
         <div className="grid-2 mt-1" style={{ gap: 8 }}>
           <label className="field"><small>Desde</small><input type="date" className="input" style={{ height: 46 }} value={params.get('desde') || ''} onChange={(e) => set('desde', e.target.value)} /></label>
@@ -88,7 +88,7 @@ function Filters({ params, set, categorias, withOrder }) {
         </div>
       </div>
       <div>
-        <h4>Categoría</h4>
+        <h2>Categoría</h2>
         <div className="filter-list">
           <Opt k="categoria" v="" label="Todas las categorías" />
           {categorias.map((c) => {
@@ -99,12 +99,12 @@ function Filters({ params, set, categorias, withOrder }) {
       </div>
       {withOrder && (
         <div>
-          <h4>Ordenar por</h4>
+          <h2>Ordenar por</h2>
           <div className="filter-list">{ORDER.map(([v, l]) => <Opt key={v} k="orden" v={v === 'fecha' ? '' : v} label={l} />)}</div>
         </div>
       )}
       <div>
-        <h4>Disponibilidad</h4>
+        <h2>Disponibilidad</h2>
         <div className="filter-list">{AVAIL.map(([v, l]) => <Opt key={v} k="disponibilidad" v={v} label={l} />)}</div>
       </div>
     </>
@@ -227,9 +227,9 @@ export default function Explore() {
           </div>
           <div className="results-bar">
             <div className="row">
-              <span className="bold row" style={{ gap: 8 }} aria-live="polite">
+              <h2 className="results-count row" aria-live="polite">
                 {countLabel}{loading && data && <Loader2 size={16} className="spin" aria-label="Actualizando" />}
-              </span>
+              </h2>
             </div>
             <div className="row" style={{ gap: 8 }}>
               <select className="select hide-sm-el" style={{ height: 40, width: 190 }} value={params.get('orden') || 'fecha'} onChange={(e) => set('orden', e.target.value === 'fecha' ? '' : e.target.value)} aria-label="Ordenar">
@@ -260,9 +260,9 @@ export default function Explore() {
               ) : view === 'map' ? (
                 <EventsMap eventos={items} />
               ) : view === 'list' ? (
-                <div className="stack">{items.map((ev) => <EventRow key={ev.id} ev={ev} />)}</div>
+                <div className="stack">{items.map((ev, k) => <EventRow key={ev.id} ev={ev} eager={k < 3} />)}</div>
               ) : (
-                <div className="ev-grid cols-3">{items.map((ev) => <EventCard key={ev.id} ev={ev} />)}</div>
+                <div className="ev-grid cols-3">{items.map((ev, k) => <EventCard key={ev.id} ev={ev} eager={k < 3} />)}</div>
               )}
             </div>
           )}
